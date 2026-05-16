@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FiGrid, FiCalendar, FiTag, FiDollarSign, FiUsers, FiBell, FiChevronRight, FiChevronDown, FiPlusSquare, FiList } from 'react-icons/fi';
+import {
+  FiGrid, FiCalendar, FiTag, FiDollarSign, FiUsers, FiBell,
+  FiChevronRight, FiChevronDown, FiPlusSquare, FiList,
+  FiBarChart2, FiSettings,
+} from 'react-icons/fi';
+import Logo from '../ui/Logo';
 
 const nav = [
-  {
-    label: 'Dashboard', icon: FiGrid, to: '/admin', exact: true,
-  },
+  { label: 'Dashboard',    icon: FiGrid,      to: '/admin', exact: true },
   {
     label: 'Match Mgt', icon: FiCalendar, children: [
       { label: 'All Matches',   to: '/admin/matches',     icon: FiList },
@@ -18,9 +21,11 @@ const nav = [
       { label: 'Settle Predictions', to: '/admin/tickets/settle', icon: FiList },
     ],
   },
-  { label: 'Transactions', icon: FiDollarSign, to: '/admin/transactions' },
-  { label: 'Users',        icon: FiUsers,      to: '/admin/users' },
-  { label: 'Notifications', icon: FiBell,      to: '/admin/notifications' },
+  { label: 'Transactions',  icon: FiDollarSign, to: '/admin/transactions' },
+  { label: 'Users',         icon: FiUsers,      to: '/admin/users' },
+  { label: 'Notifications', icon: FiBell,       to: '/admin/notifications' },
+  { label: 'Analytics',     icon: FiBarChart2,  to: '/admin/analytics' },
+  { label: 'BTP Settings',  icon: FiSettings,   to: '/admin/btp-settings' },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
@@ -46,13 +51,9 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-gray-100 shrink-0">
         {!collapsed ? (
-          <span className="text-xl font-black tracking-tight">
-            <span className="text-[#F5C518]">b</span>
-            <span className="text-[#0D2B5E]">WinAL</span>
-            <span className="text-[#F5C518]">OTT</span>
-          </span>
+          <Logo variant="full" height={28} />
         ) : (
-          <span className="text-lg font-black text-[#F5C518] mx-auto">b</span>
+          <Logo variant="icon" height={32} className="mx-auto" />
         )}
       </div>
 

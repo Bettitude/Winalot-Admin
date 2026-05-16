@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import { useAdminAuth } from '../context/AdminAuthContext';
+import Logo from '../components/ui/Logo';
 
 export default function AdminLogin() {
   const { admin, login, loading } = useAdminAuth();
@@ -21,17 +22,20 @@ export default function AdminLogin() {
     if (!res.success) setError(res.error);
   };
 
+  const handleDemoLogin = async () => {
+    setError(''); setSubmitting(true);
+    const res = await login('admin@winalott.com', 'admin123');
+    setSubmitting(false);
+    if (!res.success) setError(res.error);
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <span className="text-3xl font-black">
-            <span className="text-[#F5C518]">b</span>
-            <span className="text-[#0D2B5E]">WinAL</span>
-            <span className="text-[#F5C518]">OTT</span>
-          </span>
-          <p className="text-xs text-gray-400 mt-1 font-medium uppercase tracking-widest">Admin Panel</p>
+          <Logo variant="full" height={40} className="mx-auto" />
+          <p className="text-xs text-gray-400 mt-2 font-medium uppercase tracking-widest">Admin Panel</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
@@ -83,9 +87,14 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Demo: <span className="font-mono">admin@winalott.com</span> / <span className="font-mono">admin123</span>
-          </p>
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={submitting}
+            className="w-full mt-4 text-xs text-gray-400 hover:text-[#1A4D8F] font-medium py-2 rounded-xl border border-dashed border-gray-200 hover:border-[#1A4D8F] transition-colors disabled:opacity-60"
+          >
+            {submitting ? 'Signing in…' : 'Use demo: admin@winalott.com / admin123'}
+          </button>
         </div>
       </div>
     </div>

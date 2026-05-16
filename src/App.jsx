@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { analyticsApi } from './services/api';
 
 import AdminLayout       from './components/layout/AdminLayout';
 import AdminLogin        from './pages/AdminLogin';
@@ -12,7 +14,17 @@ import SettlePredictions from './pages/tickets/SettlePredictions';
 import Transactions      from './pages/Transactions';
 import UserManagement    from './pages/users/UserManagement';
 import Notifications     from './pages/notifications/Notifications';
+import Analytics         from './pages/Analytics';
+import BTPSettings       from './pages/BTPSettings';
 import NotFound          from './pages/NotFound';
+
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    analyticsApi.pageView({ path: location.pathname }).catch(() => {});
+  }, [location.pathname]);
+  return null;
+}
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -36,6 +48,7 @@ export default function App() {
     <BrowserRouter>
       <AdminAuthProvider>
         <ToastProvider>
+          <PageViewTracker />
           <Routes>
             {/* Public */}
             <Route path="/admin/login" element={<AdminLogin />} />
@@ -54,6 +67,8 @@ export default function App() {
               <Route path="transactions"    element={<Transactions />} />
               <Route path="users"           element={<UserManagement />} />
               <Route path="notifications"   element={<Notifications />} />
+              <Route path="analytics"       element={<Analytics />} />
+              <Route path="btp-settings"    element={<BTPSettings />} />
               <Route path="*"               element={<NotFound />} />
             </Route>
 
