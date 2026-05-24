@@ -1,22 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { authApi } from '../services/api';
 
 const AdminAuthContext = createContext(null);
-
-// Bettitude admin login hits POST /login (not /website/login)
-// Only accounts with user_type === 'dashboard' are allowed
-const BETTITUDE_API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-async function bettitudeAdminLogin(email, password) {
-  const res = await axios.post(`${BETTITUDE_API}/login`, { email, password });
-  return res.data; // { message, user, token }
-}
-
-async function bettitudeLogout(token) {
-  await axios.post(`${BETTITUDE_API}/logout`, {}, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
 
 export function AdminAuthProvider({ children }) {
   const [admin, setAdmin]     = useState(null);
@@ -37,16 +22,14 @@ export function AdminAuthProvider({ children }) {
   const login = async (email, password) => {
     setLoading(true);
 
-    // ── Dummy admin accounts (no backend required) ──────────────────────────
+    // ── Dummy admin accounts (no backend required) ────────────────────────────
     const DUMMY_ADMINS = [
       { email: 'admin@winalott.com', password: 'admin123', user: {
-          id: 'dummy-admin-001', name: 'WinALOT Admin', email: 'admin@winalott.com',
-          user_type: 'dashboard', role: 'admin',
+          id: 'dummy-admin-001', name: 'WinALOT Admin', email: 'admin@winalott.com', role: 'admin',
         },
       },
       { email: 'superadmin@winalott.com', password: 'Admin1234', user: {
-          id: 'dummy-admin-002', name: 'Super Admin', email: 'superadmin@winalott.com',
-          user_type: 'dashboard', role: 'admin',
+          id: 'dummy-admin-002', name: 'Super Admin', email: 'superadmin@winalott.com', role: 'admin',
         },
       },
     ];
@@ -59,17 +42,15 @@ export function AdminAuthProvider({ children }) {
       return { success: true };
     }
 
-    // ── Real API login ────────────────────────────────────────────────────────
+    // ── Real API login (Node.js backend) ────────────────────────────────────────
     try {
-      const data = await bettitudeAdminLogin(email, password);
-      const { user, token } = data;
+      // api.js helpers unwrap r.data already, so res = { success, data: { user, token } }
+      const res   = await authApi.login(email, password);
+      const user  = res?.data?.user  || res?.user;
+      const token = res?.data?.token || res?.token;
 
       if (!user || !token) throw new Error('Invalid response from server');
-
-      // Only dashboard users can access the admin panel
-      if (user.user_type !== 'dashboard') {
-        throw new Error('Access denied. This account is not authorized for dashboard access.');
-      }
+      if (user.role !== 'admin') throw new Error('Access denied — admin accounts only.');
 
       localStorage.setItem('admin_token', token);
       localStorage.setItem('admin_user', JSON.stringify(user));
@@ -78,14 +59,13 @@ export function AdminAuthProvider({ children }) {
       return { success: true };
     } catch (err) {
       setLoading(false);
-      const msg = err.response?.data?.message || err.message || 'Login failed';
+      const msg = err.response?.data?.error || err.message || 'Login failed';
       return { success: false, error: msg };
     }
   };
 
   const logout = async () => {
-    const token = localStorage.getItem('admin_token');
-    try { if (token) await bettitudeLogout(token); } catch { /* ignore */ }
+    try { await authApi.logout(); } catch { /* ignore network errors */ }
     setAdmin(null);
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
