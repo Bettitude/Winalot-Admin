@@ -1,0 +1,62 @@
+const CORNERS_LINES = ['6.5', '7.5', '8.5', '9.5', '10.5'];
+const GOALS_LINES   = ['0.5', '1.5', '2.5', '3.5', '4.5'];
+const CARDS_LINES   = ['1.5', '2.5', '3.5', '4.5'];
+const SHOTS_LINES   = ['8.5', '9.5', '10.5', '12.5'];
+
+function normalizeType(t) {
+  return (t || '').toLowerCase().replace(/[\s_-]+/g, '_');
+}
+
+export function generateOptions(marketType, homeTeam, awayTeam) {
+  const mt = normalizeType(marketType);
+  if (['match_result', 'result', 'scores'].includes(mt) || mt.includes('result')) {
+    return [
+      { label: homeTeam || 'Home Win', value: homeTeam || 'Home Win' },
+      { label: 'Draw',                  value: 'Draw' },
+      { label: awayTeam || 'Away Win',  value: awayTeam || 'Away Win' },
+    ];
+  }
+  if (mt.includes('corner')) return [
+    ...CORNERS_LINES.map(v => ({ label: `OV ${v}`, value: `OV ${v}` })),
+    ...CORNERS_LINES.map(v => ({ label: `UN ${v}`, value: `UN ${v}` })),
+  ];
+  if (mt.includes('goal') || mt === 'total_goals') return [
+    ...GOALS_LINES.map(v => ({ label: `OV ${v}`, value: `OV ${v}` })),
+    ...GOALS_LINES.map(v => ({ label: `UN ${v}`, value: `UN ${v}` })),
+    { label: 'BTTS Yes', value: 'BTTS Yes' },
+    { label: 'BTTS No',  value: 'BTTS No'  },
+  ];
+  if (mt.includes('card')) return [
+    ...CARDS_LINES.map(v => ({ label: `OV ${v}`, value: `OV ${v}` })),
+    ...CARDS_LINES.map(v => ({ label: `UN ${v}`, value: `UN ${v}` })),
+  ];
+  if (mt.includes('shot')) return [
+    ...SHOTS_LINES.map(v => ({ label: `OV ${v}`, value: `OV ${v}` })),
+    ...SHOTS_LINES.map(v => ({ label: `UN ${v}`, value: `UN ${v}` })),
+  ];
+  if (mt === 'btts') return [
+    { label: 'BTTS Yes', value: 'BTTS Yes' },
+    { label: 'BTTS No',  value: 'BTTS No'  },
+  ];
+  return [{ label: 'Yes', value: 'Yes' }, { label: 'No', value: 'No' }];
+}
+
+export function identifyCorrectOption(marketType, actualResult, homeTeam, awayTeam) {
+  const mt = normalizeType(marketType);
+  if (mt.includes('result') || mt === 'scores') {
+    const map = { home: homeTeam || 'Home Win', draw: 'Draw', away: awayTeam || 'Away Win' };
+    return map[(actualResult || '').toLowerCase()] || actualResult;
+  }
+  const actual = parseFloat(actualResult);
+  let lines;
+  if (mt.includes('corner'))    lines = CORNERS_LINES.map(Number);
+  else if (mt.includes('goal')) lines = GOALS_LINES.map(Number);
+  else if (mt.includes('card')) lines = CARDS_LINES.map(Number);
+  else if (mt.includes('shot')) lines = SHOTS_LINES.map(Number);
+  else if (mt === 'btts') return actualResult === 'yes' ? 'BTTS Yes' : 'BTTS No';
+  else return actualResult;
+  if (isNaN(actual)) return null;
+  const clearedOV = lines.filter(l => actual > l);
+  if (clearedOV.length === 0) return `UN ${Math.min(...lines).toFixed(1)}`;
+  return `OV ${Math.max(...clearedOV).toFixed(1)}`;
+}

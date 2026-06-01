@@ -1,65 +1,150 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiCalendar, FiStar, FiAward, FiZap } from 'react-icons/fi';
+import {
+  FiPlus, FiCalendar, FiStar, FiAward, FiZap, FiSearch,
+  FiChevronRight, FiChevronLeft, FiCheck, FiEye, FiToggleLeft, FiToggleRight,
+} from 'react-icons/fi';
 import { useToast } from '../../context/ToastContext';
-import { matchesApi, marketsApi } from '../../services/api';
+import { matchesApi, marketsApi, footballSearchApi } from '../../services/api';
+import { generateOptions } from '../../utils/marketOptions';
 
-const MARKET_TYPES = ['Corners', 'Total Cards', 'Goal Scorers', 'Shots', 'Penalty', 'Scores', 'Throw Ins', 'Fouls'];
-const ALL_MARKETS   = ['All Categories', 'Most Used'];
-
-const TIERS = [
-  { key: 'silver',   label: 'Silver',   Icon: FiStar,  description: 'Entry 50–200 BTP · 10–50 winners · Simple RNG',       bg: 'bg-gray-50 border-gray-300',     activeBg: 'bg-gray-100 border-gray-500',     badge: 'bg-gray-500 text-white',          suggestedFee: 100, suggestedWinners: 15 },
-  { key: 'gold',     label: 'Gold',     Icon: FiAward, description: 'Entry 200–2000 BTP · 3–10 winners · RNG + audit',       bg: 'bg-yellow-50 border-yellow-200', activeBg: 'bg-yellow-100 border-yellow-500', badge: 'bg-[#F5C518] text-[#1A1A2E]',   suggestedFee: 500, suggestedWinners: 5 },
-  { key: 'platinum', label: 'Platinum', Icon: FiZap,   description: 'Entry 2000–20000 BTP · 1–3 winners · Provably Fair',  bg: 'bg-purple-50 border-purple-200', activeBg: 'bg-purple-100 border-purple-500', badge: 'bg-purple-600 text-white',        suggestedFee: 2500, suggestedWinners: 2 },
+const MARKET_TYPES = [
+  'Match Result', 'Corners', 'Total Goals', 'Total Cards', 'Shots',
+  'BTTS', 'Goal Scorer', 'Penalty', 'Throw Ins', 'Fouls', 'Custom',
 ];
+
+const DEFAULT_TIERS = [
+  { tier: 'silver',   label: 'Silver',   Icon: FiStar,  active: true,  entry_fee_points: 1,  winner_count: 5,  badge: 'bg-gray-500 text-white' },
+  { tier: 'gold',     label: 'Gold',     Icon: FiAward, active: true,  entry_fee_points: 2,  winner_count: 3,  badge: 'bg-[#F5C518] text-[#1A1A2E]' },
+  { tier: 'platinum', label: 'Platinum', Icon: FiZap,   active: false, entry_fee_points: 5,  winner_count: 1,  badge: 'bg-purple-600 text-white' },
+];
+
+const STEPS = ['Match', 'Prediction Type', 'Tiers', 'Staking Window', 'Publish'];
+
+function StepIndicator({ step, total }) {
+  return (
+    <div className="flex items-center gap-1 mb-6">
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+            i < step  ? 'bg-[#1A4D8F] text-white' :
+            i === step ? 'bg-[#F5C518] text-[#1A1A2E]' :
+            'bg-gray-100 text-gray-400'
+          }`}>
+            {i < step ? <FiCheck className="w-3.5 h-3.5" /> : i + 1}
+          </div>
+          {i < total - 1 && (
+            <div className={`h-0.5 w-8 rounded-full transition-all ${i < step ? 'bg-[#1A4D8F]' : 'bg-gray-100'}`} />
+          )}
+        </div>
+      ))}
+      <p className="text-xs text-gray-400 ml-2">{STEPS[step]}</p>
+    </div>
+  );
+}
 
 export default function AddNewMatch() {
   const navigate = useNavigate();
   const { addToast } = useToast();
-
-  const [teamHome, setTeamHome]   = useState('');
-  const [teamAway, setTeamAway]   = useState('');
-  const [league, setLeague]       = useState('');
-  const [stadium, setStadium]     = useState('');
-  const [matchDate, setMatchDate] = useState('');
-  const [markets, setMarkets]     = useState([]);
-  const [marketTab, setMarketTab] = useState('All Categories');
-  const [tier, setTier]           = useState('silver');
-  const [entryFee, setEntryFee]   = useState(100);
-  const [winners, setWinners]     = useState(15);
-  const [adminPick, setAdminPick] = useState('');
-  const [status, setStatus]       = useState('draft');
-  const [errors, setErrors]       = useState({});
+  const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedTier = TIERS.find(t => t.key === tier);
+  // Step 0 — Match
+  const [fixtureSearch, setFixtureSearch] = useState('');
+  const [fixtureResults, setFixtureResults] = useState([]);
+  const [fixtureLoading, setFixtureLoading] = useState(false);
+  const [selectedFixture, setSelectedFixture] = useState(null);
+  const searchRef = useRef(null);
+  // Manual entry fallback
+  const [teamHome, setTeamHome] = useState('');
+  const [teamAway, setTeamAway] = useState('');
+  const [league, setLeague]     = useState('');
+  const [stadium, setStadium]   = useState('');
+  const [matchDate, setMatchDate] = useState('');
+  const [useManual, setUseManual] = useState(false);
 
-  const handleTierChange = (key) => {
-    setTier(key);
-    const t = TIERS.find(x => x.key === key);
-    setEntryFee(t.suggestedFee);
-    setWinners(t.suggestedWinners);
+  // Step 1 — Prediction Type
+  const [predictionType, setPredictionType] = useState('market_pick');
+  const [marketType, setMarketType]         = useState('');
+  const [adminPick, setAdminPick]           = useState('');
+
+  // Step 2 — Tiers
+  const [tiers, setTiers] = useState(DEFAULT_TIERS.map(t => ({ ...t })));
+
+  // Step 3 — Staking Window
+  const [stakingOpens,  setStakingOpens]  = useState('');
+  const [stakingCloses, setStakingCloses] = useState('');
+
+  const [errors, setErrors] = useState({});
+
+  // API-Football search
+  useEffect(() => {
+    if (!fixtureSearch.trim() || fixtureSearch.length < 3) { setFixtureResults([]); return; }
+    const t = setTimeout(async () => {
+      setFixtureLoading(true);
+      try {
+        const res = await footballSearchApi.searchFixtures(fixtureSearch);
+        setFixtureResults(res.data || []);
+      } catch {
+        setFixtureResults([]);
+      } finally {
+        setFixtureLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [fixtureSearch]);
+
+  const selectFixture = (f) => {
+    setSelectedFixture(f);
+    setTeamHome(f.teams?.home?.name || '');
+    setTeamAway(f.teams?.away?.name || '');
+    setLeague(f.league?.name || '');
+    setStadium(f.fixture?.venue?.name || '');
+    if (f.fixture?.date) {
+      const d = new Date(f.fixture.date);
+      setMatchDate(d.toISOString().slice(0, 16));
+    }
+    setFixtureSearch('');
+    setFixtureResults([]);
   };
 
-  const toggleMarket = (m) =>
-    setMarkets(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
+  const updateTier = (idx, key, val) => {
+    setTiers(prev => prev.map((t, i) => i === idx ? { ...t, [key]: val } : t));
+  };
 
-  const validate = () => {
+  const homeTeamName = teamHome;
+  const awayTeamName = teamAway;
+
+  const previewOptions = marketType
+    ? generateOptions(marketType, homeTeamName, awayTeamName)
+    : [];
+
+  const validateStep = () => {
     const e = {};
-    if (!teamHome.trim())  e.teamHome  = 'Home team is required';
-    if (!teamAway.trim())  e.teamAway  = 'Away team is required';
-    if (!matchDate)        e.matchDate = 'Match date is required';
-    if (markets.length === 0) e.markets = 'Select at least one market type';
-    if (!adminPick.trim()) e.adminPick = 'Admin pick is required';
+    if (step === 0) {
+      if (!teamHome.trim())  e.teamHome  = 'Home team required';
+      if (!teamAway.trim())  e.teamAway  = 'Away team required';
+      if (!matchDate)        e.matchDate = 'Match date required';
+    }
+    if (step === 1) {
+      if (!marketType)       e.marketType = 'Select a market type';
+      if (predictionType === 'market_pick' && !adminPick.trim()) e.adminPick = 'Admin pick is required for Market Pick';
+    }
+    if (step === 2) {
+      const anyActive = tiers.some(t => t.active);
+      if (!anyActive) e.tiers = 'Enable at least one tier';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
+  const next = () => { if (validateStep()) setStep(s => Math.min(s + 1, 4)); };
+  const back = () => setStep(s => Math.max(s - 1, 0));
+
   const submit = async (publishStatus) => {
-    if (!validate()) return;
+    if (!validateStep()) return;
     setSubmitting(true);
     try {
-      // 1. Create the match
       const matchRes = await matchesApi.create({
         team_home:  teamHome.trim(),
         team_away:  teamAway.trim(),
@@ -67,21 +152,28 @@ export default function AddNewMatch() {
         stadium:    stadium.trim() || null,
         match_date: matchDate,
         status:     publishStatus,
+        api_fixture_id: selectedFixture?.fixture?.id || null,
+        home_logo:  selectedFixture?.teams?.home?.logo || null,
+        away_logo:  selectedFixture?.teams?.away?.logo || null,
       });
       const matchId = matchRes.data?.match?.id;
       if (!matchId) throw new Error('Match creation failed');
 
-      // 2. Create a market for each selected market type
-      await Promise.all(markets.map(marketType =>
-        marketsApi.create({
-          match_id:     matchId,
-          market_type:  marketType,
-          admin_pick:   adminPick.trim(),
-          tier,
-          entry_fee:    parseInt(entryFee),
-          winner_count: parseInt(winners),
-        })
-      ));
+      const activeTiers = tiers.filter(t => t.active).map(t => ({
+        tier:              t.tier,
+        entry_fee_points:  parseInt(t.entry_fee_points),
+        winner_count:      parseInt(t.winner_count),
+      }));
+
+      await marketsApi.create({
+        match_id:         matchId,
+        market_type:      marketType,
+        prediction_type:  predictionType,
+        admin_pick:       predictionType === 'market_pick' ? adminPick.trim() : null,
+        tiers:            activeTiers,
+        staking_opens_at:  stakingOpens  || null,
+        staking_closes_at: stakingCloses || null,
+      });
 
       addToast(`Match ${publishStatus === 'active' ? 'published' : 'saved as draft'} successfully`, 'success');
       navigate('/admin/matches');
@@ -93,181 +185,342 @@ export default function AddNewMatch() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-3xl">
       <div>
         <h1 className="text-xl font-black text-[#1A1A2E]">Add New Match</h1>
-        <p className="text-sm text-gray-500">Create a new prediction market for users to enter</p>
+        <p className="text-sm text-gray-500">Create a prediction market for users to enter</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-5">
-        {/* ── Left column ─────────────────────────────────── */}
-        <div className="flex-1 space-y-5">
+      <StepIndicator step={step} total={STEPS.length} />
 
-          {/* Teams */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
-            <h3 className="font-bold text-[#1A1A2E]">Teams</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <input value={teamHome} onChange={e => setTeamHome(e.target.value)}
-                  placeholder="Home team (e.g. Arsenal)"
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/30 focus:border-[#1A4D8F] placeholder-gray-300 ${errors.teamHome ? 'border-red-400' : 'border-gray-200'}`} />
-                {errors.teamHome && <p className="text-red-500 text-xs mt-1">{errors.teamHome}</p>}
-              </div>
-              <div>
-                <input value={teamAway} onChange={e => setTeamAway(e.target.value)}
-                  placeholder="Away team (e.g. Chelsea)"
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/30 focus:border-[#1A4D8F] placeholder-gray-300 ${errors.teamAway ? 'border-red-400' : 'border-gray-200'}`} />
-                {errors.teamAway && <p className="text-red-500 text-xs mt-1">{errors.teamAway}</p>}
-              </div>
+      {/* ── STEP 0: Match ──────────────────────────────────────────────── */}
+      {step === 0 && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h3 className="font-bold text-[#1A1A2E] mb-4">Select Match from API-Football</h3>
+
+            <div className="relative mb-4" ref={searchRef}>
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={fixtureSearch}
+                onChange={e => setFixtureSearch(e.target.value)}
+                placeholder="Search team name e.g. Arsenal, Barcelona…"
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1A4D8F] placeholder-gray-300"
+              />
+              {fixtureLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#1A4D8F]/20 border-t-[#1A4D8F] rounded-full animate-spin" />
+              )}
+              {fixtureResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
+                  {fixtureResults.map((f, i) => (
+                    <button key={i} onClick={() => selectFixture(f)}
+                      className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-50 last:border-0 transition-colors">
+                      <p className="text-sm font-semibold text-[#1A1A2E]">
+                        {f.teams?.home?.name} vs {f.teams?.away?.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {f.league?.name} · {f.fixture?.date ? new Date(f.fixture.date).toLocaleDateString() : '—'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {selectedFixture && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4 flex items-center gap-2.5">
+                <FiCheck className="w-4 h-4 text-green-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-green-700">
+                    {selectedFixture.teams?.home?.name} vs {selectedFixture.teams?.away?.name}
+                  </p>
+                  <p className="text-xs text-green-600">{selectedFixture.league?.name}</p>
+                </div>
+                <button onClick={() => { setSelectedFixture(null); setTeamHome(''); setTeamAway(''); setLeague(''); setMatchDate(''); }}
+                  className="ml-auto text-xs text-green-600 hover:underline">Clear</button>
+              </div>
+            )}
+
+            <button onClick={() => setUseManual(v => !v)}
+              className="text-xs text-[#1A4D8F] hover:underline mb-3 block">
+              {useManual ? 'Hide manual entry' : 'Enter match manually instead'}
+            </button>
           </div>
 
-          {/* Tier Selection */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="font-bold text-[#1A1A2E] mb-4">Tier</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {TIERS.map(t => {
-                const active = tier === t.key;
-                return (
-                  <button key={t.key} type="button" onClick={() => handleTierChange(t.key)}
-                    className={`relative text-left p-4 rounded-xl border-2 transition-all ${active ? t.activeBg : t.bg} hover:brightness-95`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black ${t.badge}`}>
-                        <t.Icon className="w-3 h-3" />{t.label}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{t.description}</p>
-                    {active && (
-                      <span className="absolute top-2 right-2 w-4 h-4 bg-[#1A4D8F] rounded-full flex items-center justify-center">
-                        <span className="w-2 h-2 bg-white rounded-full" />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+          {(useManual || !selectedFixture) && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+              <h3 className="font-bold text-[#1A1A2E]">Match Details</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">Home Team *</label>
+                  <input value={teamHome} onChange={e => setTeamHome(e.target.value)}
+                    placeholder="e.g. Arsenal"
+                    className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.teamHome ? 'border-red-400' : 'border-gray-200'}`} />
+                  {errors.teamHome && <p className="text-red-500 text-xs mt-1">{errors.teamHome}</p>}
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">Away Team *</label>
+                  <input value={teamAway} onChange={e => setTeamAway(e.target.value)}
+                    placeholder="e.g. Chelsea"
+                    className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.teamAway ? 'border-red-400' : 'border-gray-200'}`} />
+                  {errors.teamAway && <p className="text-red-500 text-xs mt-1">{errors.teamAway}</p>}
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">League</label>
+                  <input value={league} onChange={e => setLeague(e.target.value)} placeholder="e.g. Premier League"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium mb-1 block">Stadium</label>
+                  <input value={stadium} onChange={e => setStadium(e.target.value)} placeholder="e.g. Old Trafford"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 font-medium mb-1 block">Match Date &amp; Time *</label>
+                <input type="datetime-local" value={matchDate} onChange={e => setMatchDate(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.matchDate ? 'border-red-400' : 'border-gray-200'}`} />
+                {errors.matchDate && <p className="text-red-500 text-xs mt-1">{errors.matchDate}</p>}
+              </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STEP 1: Prediction Type ──────────────────────────────────── */}
+      {step === 1 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              {
+                key: 'market_pick',
+                title: 'Market Pick',
+                desc: 'I define the prediction. User picks YES or NO.',
+                detail: 'Admin sets a specific prediction. Users agree or disagree.',
+              },
+              {
+                key: 'market_type',
+                title: 'Market Type',
+                desc: 'System shows standard betting options. User picks one.',
+                detail: 'System auto-generates all standard options based on market category.',
+              },
+            ].map(opt => (
+              <button key={opt.key} type="button" onClick={() => setPredictionType(opt.key)}
+                className={`text-left p-5 rounded-xl border-2 transition-all ${
+                  predictionType === opt.key
+                    ? 'border-[#1A4D8F] bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    predictionType === opt.key ? 'border-[#1A4D8F]' : 'border-gray-300'
+                  }`}>
+                    {predictionType === opt.key && <div className="w-2 h-2 rounded-full bg-[#1A4D8F]" />}
+                  </div>
+                  <p className="font-black text-sm text-[#1A1A2E]">{opt.title}</p>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed mb-2">{opt.desc}</p>
+                <p className="text-[11px] text-gray-400">{opt.detail}</p>
+              </button>
+            ))}
           </div>
 
-          {/* Markets */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="font-bold text-[#1A1A2E] mb-4">Market Types</h3>
-            <div className="flex gap-0 border-b border-gray-100 mb-4">
-              {ALL_MARKETS.map(t => (
-                <button key={t} onClick={() => setMarketTab(t)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${marketTab === t ? 'border-[#1A4D8F] text-[#1A4D8F]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                  {t}
+            <h3 className="font-bold text-[#1A1A2E] mb-3">Market Category</h3>
+            {errors.marketType && <p className="text-red-500 text-xs mb-2">{errors.marketType}</p>}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {MARKET_TYPES.map(m => (
+                <button key={m} type="button" onClick={() => setMarketType(m)}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold text-center transition-all border ${
+                    marketType === m
+                      ? 'bg-[#1A4D8F] text-white border-[#1A4D8F]'
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-[#1A4D8F] hover:text-[#1A4D8F]'
+                  }`}>
+                  {m}
                 </button>
               ))}
             </div>
-            {errors.markets && <p className="text-red-500 text-xs mb-3">{errors.markets}</p>}
-            <div className="grid grid-cols-2 gap-2">
-              {MARKET_TYPES.map(m => (
-                <label key={m} className="flex items-center gap-2.5 cursor-pointer group">
-                  <input type="checkbox" checked={markets.includes(m)} onChange={() => toggleMarket(m)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#1A4D8F] cursor-pointer" />
-                  <span className="text-sm text-gray-700 group-hover:text-[#1A4D8F] transition-colors">{m}</span>
-                </label>
+          </div>
+
+          {predictionType === 'market_pick' && marketType && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <h3 className="font-bold text-[#1A1A2E] mb-2">Admin Prediction</h3>
+              <input value={adminPick} onChange={e => setAdminPick(e.target.value)}
+                placeholder={`e.g. Over 9.5 Corners`}
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.adminPick ? 'border-red-400' : 'border-gray-200'}`} />
+              {errors.adminPick && <p className="text-red-500 text-xs mt-1">{errors.adminPick}</p>}
+              {adminPick && (
+                <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                  <p className="text-[10px] text-gray-400 mb-1">Preview — user will see:</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1 py-2 bg-white border-2 border-gray-200 rounded-lg text-xs font-black text-center text-gray-600">YES</div>
+                    <div className="flex-1 py-2 bg-white border-2 border-gray-200 rounded-lg text-xs font-black text-center text-gray-600">NO</div>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1.5">Agree or disagree: <strong>{adminPick}</strong></p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {predictionType === 'market_type' && marketType && previewOptions.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <FiEye className="w-4 h-4 text-[#1A4D8F]" />
+                <h3 className="font-bold text-[#1A1A2E]">Preview — user will see</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {previewOptions.map(o => (
+                  <span key={o.value} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600">
+                    {o.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STEP 2: Tiers ────────────────────────────────────────────── */}
+      {step === 2 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+            <h3 className="font-bold text-[#1A1A2E]">Tier Settings</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Configure entry fee and winner count per tier. Prize pool auto-calculates as entries come in.</p>
+          </div>
+          {errors.tiers && <p className="text-red-500 text-xs px-5 pt-3">{errors.tiers}</p>}
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr className="text-xs text-gray-500 font-semibold">
+                <th className="text-left px-5 py-3">Tier</th>
+                <th className="text-left py-3">Active</th>
+                <th className="text-left py-3">Entry (BTP)</th>
+                <th className="text-left py-3">Winners</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((t, i) => (
+                <tr key={t.tier} className={`border-t border-gray-100 ${!t.active ? 'opacity-50' : ''}`}>
+                  <td className="px-5 py-4">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black ${t.badge}`}>
+                      <t.Icon className="w-3 h-3" />{t.label}
+                    </span>
+                  </td>
+                  <td className="py-4">
+                    <button type="button" onClick={() => updateTier(i, 'active', !t.active)}
+                      className={`w-10 h-5 rounded-full transition-all relative ${t.active ? 'bg-[#1A4D8F]' : 'bg-gray-200'}`}>
+                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${t.active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </td>
+                  <td className="py-4">
+                    <input type="number" min="1" value={t.entry_fee_points}
+                      onChange={e => updateTier(i, 'entry_fee_points', e.target.value)}
+                      disabled={!t.active}
+                      className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                  </td>
+                  <td className="py-4">
+                    <input type="number" min="1" value={t.winner_count}
+                      onChange={e => updateTier(i, 'winner_count', e.target.value)}
+                      disabled={!t.active}
+                      className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── STEP 3: Staking Window ───────────────────────────────────── */}
+      {step === 3 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+          <h3 className="font-bold text-[#1A1A2E]">Staking Window</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-500 font-medium mb-1 block">Staking Opens</label>
+              <input type="datetime-local" value={stakingOpens} onChange={e => setStakingOpens(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-medium mb-1 block">Staking Closes</label>
+              <input type="datetime-local" value={stakingCloses} onChange={e => setStakingCloses(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium mb-2">Quick options</p>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { label: '5 mins before kickoff', mins: -5 },
+                { label: '30 mins before kickoff', mins: -30 },
+                { label: '1 hr before kickoff', mins: -60 },
+              ].map(opt => (
+                <button key={opt.label} type="button"
+                  onClick={() => {
+                    if (!matchDate) return addToast('Set match date first', 'error');
+                    const kick = new Date(matchDate).getTime();
+                    const close = new Date(kick + opt.mins * 60000).toISOString().slice(0, 16);
+                    setStakingCloses(close);
+                  }}
+                  className="px-3 py-1.5 border border-gray-200 text-xs font-medium text-gray-600 rounded-lg hover:border-[#1A4D8F] hover:text-[#1A4D8F] transition-colors">
+                  {opt.label}
+                </button>
               ))}
             </div>
           </div>
-
-          {/* Admin Pick */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="font-bold text-[#1A1A2E] mb-3">Admin Pick</h3>
-            <input value={adminPick} onChange={e => setAdminPick(e.target.value)}
-              placeholder="e.g. Over 9.5 Corners"
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/30 focus:border-[#1A4D8F] placeholder-gray-300 ${errors.adminPick ? 'border-red-400' : 'border-gray-200'}`} />
-            {errors.adminPick && <p className="text-red-500 text-xs mt-1">{errors.adminPick}</p>}
-          </div>
-
-          {/* Stadium / League */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
-            <h3 className="font-bold text-[#1A1A2E] flex items-center gap-2"><FiCalendar className="w-4 h-4 text-[#1A4D8F]" /> Match Details</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500 font-medium mb-1 block">League</label>
-                <input value={league} onChange={e => setLeague(e.target.value)} placeholder="e.g. Premier League"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium mb-1 block">Stadium</label>
-                <input value={stadium} onChange={e => setStadium(e.target.value)} placeholder="e.g. Old Trafford"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 font-medium mb-1 block">Match Date & Time *</label>
-              <input type="datetime-local" value={matchDate} onChange={e => setMatchDate(e.target.value)}
-                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.matchDate ? 'border-red-400' : 'border-gray-200'}`} />
-              {errors.matchDate && <p className="text-red-500 text-xs mt-1">{errors.matchDate}</p>}
-            </div>
-          </div>
-
-          {/* Entry Fee + Winners */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="font-bold text-[#1A1A2E] mb-4">Entry Fee (BTP) &amp; Winners</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-gray-500 font-medium mb-1 block">Entry Fee (BTP)</label>
-                <input type="number" min="1" value={entryFee} onChange={e => setEntryFee(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
-                <p className="text-[10px] text-gray-400 mt-1">{selectedTier?.label} suggested: {selectedTier?.suggestedFee} BTP</p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium mb-1 block">Number of Winners</label>
-                <input type="number" min="1" value={winners} onChange={e => setWinners(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F]" />
-                <p className="text-[10px] text-gray-400 mt-1">{selectedTier?.label} suggested: {selectedTier?.suggestedWinners}</p>
-              </div>
-            </div>
-          </div>
         </div>
+      )}
 
-        {/* ── Right column (Publish panel) ────────────────── */}
-        <div className="w-full lg:w-64 xl:w-72 shrink-0">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 sticky top-6 space-y-4">
-            <h3 className="font-bold text-[#1A1A2E]">Publish</h3>
-
-            <div className={`rounded-lg p-3 border-2 ${selectedTier?.activeBg}`}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black ${selectedTier?.badge}`}>
-                  {selectedTier && <selectedTier.Icon className="w-3 h-3" />}
-                  {selectedTier?.label}
-                </span>
+      {/* ── STEP 4: Publish ─────────────────────────────────────────── */}
+      {step === 4 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+          <h3 className="font-bold text-[#1A1A2E]">Review &amp; Publish</h3>
+          <div className="space-y-2 text-sm">
+            {[
+              ['Match',       teamHome && teamAway ? `${teamHome} vs ${teamAway}` : '—'],
+              ['League',      league || '—'],
+              ['Date',        matchDate ? new Date(matchDate).toLocaleString() : '—'],
+              ['Market',      marketType || '—'],
+              ['Type',        predictionType === 'market_pick' ? 'Market Pick' : 'Market Type'],
+              ['Admin Pick',  predictionType === 'market_pick' ? (adminPick || '—') : 'Auto-generated'],
+              ['Active Tiers', tiers.filter(t => t.active).map(t => `${t.label} (${t.entry_fee_points} BTP)`).join(', ') || '—'],
+              ['Staking Opens',  stakingOpens  ? new Date(stakingOpens).toLocaleString()  : 'Immediately'],
+              ['Staking Closes', stakingCloses ? new Date(stakingCloses).toLocaleString() : '5 mins before kickoff'],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-start justify-between gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                <span className="text-gray-500 text-xs w-28 shrink-0">{k}</span>
+                <span className="text-xs font-medium text-[#1A1A2E] text-right">{v}</span>
               </div>
-              <p className="text-xs text-gray-500">{selectedTier?.description}</p>
-            </div>
-
+            ))}
+          </div>
+          <div className="flex gap-3 pt-2">
             <button onClick={() => submit('draft')} disabled={submitting}
-              className="w-full border border-gray-300 text-gray-700 rounded px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60">
-              Save Draft
+              className="flex-1 border border-gray-300 text-gray-700 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+              {submitting ? 'Saving…' : 'Save Draft'}
             </button>
-
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <FiEdit2 className="w-3.5 h-3.5 text-gray-400" />
-                  Status: <span className="font-medium text-[#1A1A2E] capitalize">{status}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <FiCalendar className="w-3.5 h-3.5 text-gray-400" />
-                Markets: <span className="font-medium text-[#1A1A2E]">{markets.length} selected</span>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100 pt-4 space-y-2">
-              <button onClick={() => submit('active')} disabled={submitting}
-                className="w-full bg-[#1A4D8F] text-white font-semibold rounded px-4 py-2.5 text-sm hover:bg-[#0D2B5E] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {submitting ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full spinner" /> Saving…</> : 'Publish'}
-              </button>
-              <button onClick={() => navigate('/admin/matches')}
-                className="w-full text-xs text-red-400 hover:text-red-500 hover:underline text-center">
-                Cancel
-              </button>
-            </div>
+            <button onClick={() => submit('active')} disabled={submitting}
+              className="flex-1 bg-[#1A4D8F] text-white font-semibold rounded-lg px-4 py-2.5 text-sm hover:bg-[#0D2B5E] disabled:opacity-60 flex items-center justify-center gap-2">
+              {submitting
+                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
+                : 'Publish Now'
+              }
+            </button>
           </div>
         </div>
+      )}
+
+      {/* ── Navigation ──────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between pt-2">
+        <button onClick={step === 0 ? () => navigate('/admin/matches') : back}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+          <FiChevronLeft className="w-4 h-4" />
+          {step === 0 ? 'Cancel' : 'Back'}
+        </button>
+        {step < 4 && (
+          <button onClick={next}
+            className="flex items-center gap-2 bg-[#1A4D8F] text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-[#0D2B5E] transition-colors">
+            Next <FiChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -50,11 +50,13 @@ export const matchesApi = {
 
 // ── Markets ───────────────────────────────────────────────────────────────────
 export const marketsApi = {
-  list:   (params) => get('/api/markets', params),
-  get:    (id)     => get(`/api/markets/${id}`),
-  create: (body)   => post('/api/markets', body),
-  update: (id, b)  => put(`/api/markets/${id}`, b),
-  remove: (id)     => del(`/api/markets/${id}`),
+  list:    (params)   => get('/api/markets', params),
+  get:     (id)       => get(`/api/markets/${id}`),
+  options: (id)       => get(`/api/markets/${id}/options`),
+  create:  (body)     => post('/api/markets', body),
+  update:  (id, b)    => put(`/api/markets/${id}`, b),
+  settle:  (id, body) => post(`/api/markets/${id}/settle`, body),
+  remove:  (id)       => del(`/api/markets/${id}`),
 };
 
 // ── Tickets ───────────────────────────────────────────────────────────────────
@@ -112,6 +114,16 @@ export const analyticsApi = {
 export const btpSettingsApi = {
   get:    ()     => get('/api/btp-settings'),
   update: (body) => put('/api/btp-settings', body),
+};
+
+// ── Admin Live Stats ──────────────────────────────────────────────────────────
+export const liveStatsApi = {
+  get: () => get('/api/admin/stats/live'),
+};
+
+// ── Football search (API-Football proxy) ──────────────────────────────────────
+export const footballSearchApi = {
+  searchFixtures: (q) => get('/api/football/fixtures/search', { q }),
 };
 
 export default api;

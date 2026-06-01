@@ -9,8 +9,12 @@ import AdminLogin        from './pages/AdminLogin';
 import Dashboard         from './pages/Dashboard';
 import AllMatches        from './pages/matches/AllMatches';
 import AddNewMatch       from './pages/matches/AddNewMatch';
+import EditMatch         from './pages/matches/EditMatch';
 import AllPredictions    from './pages/tickets/AllPredictions';
 import SettlePredictions from './pages/tickets/SettlePredictions';
+import AllGiveaways      from './pages/giveaways/AllGiveaways';
+import AddNewGiveaway    from './pages/giveaways/AddNewGiveaway';
+import SettleGiveaway    from './pages/giveaways/SettleGiveaway';
 import Transactions      from './pages/Transactions';
 import UserManagement    from './pages/users/UserManagement';
 import Notifications     from './pages/notifications/Notifications';
@@ -60,11 +64,15 @@ export default function App() {
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
-              <Route path="matches"         element={<AllMatches />} />
-              <Route path="matches/new"     element={<AddNewMatch />} />
+              <Route path="matches"             element={<AllMatches />} />
+              <Route path="matches/new"         element={<AddNewMatch />} />
+              <Route path="matches/edit/:id"    element={<EditMatch />} />
               <Route path="tickets"         element={<AllPredictions />} />
               <Route path="tickets/settle"  element={<SettlePredictions />} />
-              <Route path="transactions"    element={<Transactions />} />
+              <Route path="giveaways"           element={<AllGiveaways />} />
+              <Route path="giveaways/new"       element={<AddNewGiveaway />} />
+              <Route path="giveaways/settle"    element={<SettleGiveaway />} />
+              <Route path="transactions"        element={<Transactions />} />
               <Route path="users"           element={<UserManagement />} />
               <Route path="notifications"   element={<Notifications />} />
               <Route path="analytics"       element={<Analytics />} />
