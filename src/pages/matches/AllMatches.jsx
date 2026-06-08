@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiEdit2, FiSearch, FiUsers, FiStar, FiAward, FiZap,
-         FiRefreshCw, FiCheckSquare, FiChevronDown } from 'react-icons/fi';
+         FiRefreshCw, FiCheckSquare, FiChevronDown, FiLayers } from 'react-icons/fi';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Pagination from '../../components/ui/Pagination';
@@ -158,9 +158,13 @@ export default function AllMatches() {
           <button onClick={fetchMatches} className="p-2 border border-gray-200 rounded text-gray-500 hover:bg-gray-50">
             <FiRefreshCw className="w-4 h-4" />
           </button>
+          <Link to="/admin/matches/bulk"
+            className="flex items-center gap-2 border border-gray-300 text-gray-600 rounded px-4 py-2 text-sm font-semibold hover:bg-gray-50 transition-colors">
+            <FiLayers className="w-4 h-4" /> Bulk Add (Mode 2/3)
+          </Link>
           <Link to="/admin/matches/new"
             className="flex items-center gap-2 border border-[#1A4D8F] text-[#1A4D8F] rounded px-4 py-2 text-sm font-semibold hover:bg-blue-50 transition-colors">
-            <FiPlus className="w-4 h-4" /> Add New Match
+            <FiPlus className="w-4 h-4" /> Add Single Match
           </Link>
         </div>
       </div>

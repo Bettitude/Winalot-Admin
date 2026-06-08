@@ -139,7 +139,19 @@ export default function AddNewMatch() {
   }, [predictionType]);
 
   const updateTier = (idx, key, val) => {
-    setTiers(prev => prev.map((t, i) => i === idx ? { ...t, [key]: val } : t));
+    setTiers(prev => {
+      const updated = prev.map((t, i) => i === idx ? { ...t, [key]: val } : t);
+      // Mutual exclusion: Free and paid tiers cannot be active at the same time
+      if (key === 'active' && val === true) {
+        const toggled = updated[idx];
+        if (toggled.tier === 'free') {
+          return updated.map(t => t.tier === 'free' ? t : { ...t, active: false });
+        } else {
+          return updated.map(t => t.tier === 'free' ? { ...t, active: false } : t);
+        }
+      }
+      return updated;
+    });
   };
 
   const homeTeamName = teamHome;
@@ -477,6 +489,9 @@ export default function AddNewMatch() {
           <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
             <h3 className="font-bold text-[#1A1A2E]">Tier Settings</h3>
             <p className="text-xs text-gray-400 mt-0.5">Configure entry fee and winner count per tier. Prize pool auto-calculates as entries come in.</p>
+            <p className="text-[11px] text-amber-600 mt-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+              Free tier is mutually exclusive with Silver / Gold / Platinum — enabling one group disables the other.
+            </p>
           </div>
           {errors.tiers && <p className="text-red-500 text-xs px-5 pt-3">{errors.tiers}</p>}
           <table className="w-full text-sm">

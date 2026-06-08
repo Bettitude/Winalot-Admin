@@ -50,13 +50,14 @@ export const matchesApi = {
 
 // ── Markets ───────────────────────────────────────────────────────────────────
 export const marketsApi = {
-  list:    (params)   => get('/api/markets', params),
-  get:     (id)       => get(`/api/markets/${id}`),
-  options: (id)       => get(`/api/markets/${id}/options`),
-  create:  (body)     => post('/api/markets', body),
-  update:  (id, b)    => put(`/api/markets/${id}`, b),
-  settle:  (id, body) => post(`/api/markets/${id}/settle`, body),
-  remove:  (id)       => del(`/api/markets/${id}`),
+  list:       (params)   => get('/api/markets', params),
+  get:        (id)       => get(`/api/markets/${id}`),
+  options:    (id)       => get(`/api/markets/${id}/options`),
+  create:     (body)     => post('/api/markets', body),
+  bulkCreate: (body)     => post('/api/markets/bulk', body),
+  update:     (id, b)    => put(`/api/markets/${id}`, b),
+  settle:     (id, body) => post(`/api/markets/${id}/settle`, body),
+  remove:     (id)       => del(`/api/markets/${id}`),
 };
 
 // ── Tickets ───────────────────────────────────────────────────────────────────

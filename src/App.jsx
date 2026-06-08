@@ -9,6 +9,7 @@ import AdminLogin        from './pages/AdminLogin';
 import Dashboard         from './pages/Dashboard';
 import AllMatches        from './pages/matches/AllMatches';
 import AddNewMatch       from './pages/matches/AddNewMatch';
+import BulkAddMatches    from './pages/matches/BulkAddMatches';
 import EditMatch         from './pages/matches/EditMatch';
 import AllPredictions    from './pages/tickets/AllPredictions';
 import SettlePredictions from './pages/tickets/SettlePredictions';
@@ -66,6 +67,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="matches"             element={<AllMatches />} />
               <Route path="matches/new"         element={<AddNewMatch />} />
+              <Route path="matches/bulk"        element={<BulkAddMatches />} />
               <Route path="matches/edit/:id"    element={<EditMatch />} />
               <Route path="tickets"         element={<AllPredictions />} />
               <Route path="tickets/settle"  element={<SettlePredictions />} />
