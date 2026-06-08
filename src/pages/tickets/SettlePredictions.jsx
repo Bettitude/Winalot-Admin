@@ -353,7 +353,9 @@ export default function SettlePredictions() {
           <div className="divide-y divide-gray-100">
             {markets.map(m => {
               const isSettled    = m.status === 'settled';
-              const isMarketPick = (m.prediction_type || 'market_pick') === 'market_pick';
+              const predType     = m.prediction_type || 'market_pick';
+              const isMarketPick = predType === 'market_pick' || predType === 'api_pick';
+              const isApiPick    = predType === 'api_pick';
               const hasCorrect   = !!(correctOptions[m.id] || m.correct_outcome);
               const tierPools    = m.tier_pools || [];
               const marketDrawResults = drawResults[m.id] || {};
@@ -369,9 +371,11 @@ export default function SettlePredictions() {
                           {m.team_home} vs {m.team_away}
                         </p>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          isMarketPick ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-purple-50 text-purple-700 border border-purple-200'
+                          isApiPick    ? 'bg-teal-50 text-teal-700 border border-teal-200' :
+                          isMarketPick ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                          'bg-purple-50 text-purple-700 border border-purple-200'
                         }`}>
-                          {isMarketPick ? 'Market Pick' : 'Market Type'}
+                          {isApiPick ? 'API Pick' : isMarketPick ? 'Market Pick' : 'Market Type'}
                         </span>
                         {isSettled && <StatusBadge status="settled" />}
                       </div>

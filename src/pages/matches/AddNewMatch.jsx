@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiPlus, FiCalendar, FiStar, FiAward, FiZap, FiSearch,
-  FiChevronRight, FiChevronLeft, FiCheck, FiEye, FiToggleLeft, FiToggleRight,
+  FiPlus, FiCalendar, FiStar, FiAward, FiZap, FiSearch, FiGift,
+  FiChevronRight, FiChevronLeft, FiCheck, FiEye, FiToggleLeft, FiToggleRight, FiCpu,
 } from 'react-icons/fi';
 import { useToast } from '../../context/ToastContext';
 import { matchesApi, marketsApi, footballSearchApi } from '../../services/api';
@@ -14,6 +14,7 @@ const MARKET_TYPES = [
 ];
 
 const DEFAULT_TIERS = [
+  { tier: 'free',     label: 'Free',     Icon: FiGift,  active: false, entry_fee_points: 0,  winner_count: 10, badge: 'bg-green-500 text-white' },
   { tier: 'silver',   label: 'Silver',   Icon: FiStar,  active: true,  entry_fee_points: 1,  winner_count: 5,  badge: 'bg-gray-500 text-white' },
   { tier: 'gold',     label: 'Gold',     Icon: FiAward, active: true,  entry_fee_points: 2,  winner_count: 3,  badge: 'bg-[#F5C518] text-[#1A1A2E]' },
   { tier: 'platinum', label: 'Platinum', Icon: FiZap,   active: false, entry_fee_points: 5,  winner_count: 1,  badge: 'bg-purple-600 text-white' },
@@ -67,6 +68,8 @@ export default function AddNewMatch() {
   const [predictionType, setPredictionType] = useState('market_pick');
   const [marketType, setMarketType]         = useState('');
   const [adminPick, setAdminPick]           = useState('');
+  const [apiPickData, setApiPickData]       = useState(null);   // fetched from API-Football
+  const [apiPickLoading, setApiPickLoading] = useState(false);
 
   // Step 2 — Tiers
   const [tiers, setTiers] = useState(DEFAULT_TIERS.map(t => ({ ...t })));
@@ -94,7 +97,7 @@ export default function AddNewMatch() {
     return () => clearTimeout(t);
   }, [fixtureSearch]);
 
-  const selectFixture = (f) => {
+  const selectFixture = async (f) => {
     setSelectedFixture(f);
     setTeamHome(f.teams?.home?.name || '');
     setTeamAway(f.teams?.away?.name || '');
@@ -106,7 +109,34 @@ export default function AddNewMatch() {
     }
     setFixtureSearch('');
     setFixtureResults([]);
+    setApiPickData(null);
+
+    // Auto-fetch API prediction for Mode 3 when fixture has an ID
+    if (predictionType === 'api_pick' && f.fixture?.id) {
+      setApiPickLoading(true);
+      try {
+        const res = await footballSearchApi.getPredictions(f.fixture.id);
+        setApiPickData(res.data || null);
+      } catch {
+        setApiPickData(null);
+      } finally {
+        setApiPickLoading(false);
+      }
+    }
   };
+
+  // Re-fetch prediction when mode switches to api_pick and fixture already selected
+  useEffect(() => {
+    if (predictionType !== 'api_pick' || !selectedFixture?.fixture?.id) return;
+    if (apiPickData) return;
+    let cancelled = false;
+    setApiPickLoading(true);
+    footballSearchApi.getPredictions(selectedFixture.fixture.id)
+      .then(res => { if (!cancelled) setApiPickData(res.data || null); })
+      .catch(() => { if (!cancelled) setApiPickData(null); })
+      .finally(() => { if (!cancelled) setApiPickLoading(false); });
+    return () => { cancelled = true; };
+  }, [predictionType]);
 
   const updateTier = (idx, key, val) => {
     setTiers(prev => prev.map((t, i) => i === idx ? { ...t, [key]: val } : t));
@@ -127,8 +157,11 @@ export default function AddNewMatch() {
       if (!matchDate)        e.matchDate = 'Match date required';
     }
     if (step === 1) {
-      if (!marketType)       e.marketType = 'Select a market type';
+      if (!marketType) e.marketType = 'Select a market type';
       if (predictionType === 'market_pick' && !adminPick.trim()) e.adminPick = 'Admin pick is required for Market Pick';
+      if (predictionType === 'api_pick' && !apiPickData?.pick && !adminPick.trim()) {
+        e.adminPick = 'No API prediction available — enter a manual pick or select a fixture with predictions';
+      }
     }
     if (step === 2) {
       const anyActive = tiers.some(t => t.active);
@@ -165,11 +198,17 @@ export default function AddNewMatch() {
         winner_count:      parseInt(t.winner_count),
       }));
 
+      // For api_pick: use auto-fetched pick, fall back to manual adminPick
+      const resolvedPick =
+        predictionType === 'market_pick' ? adminPick.trim() :
+        predictionType === 'api_pick'    ? (apiPickData?.pick || adminPick.trim() || null) :
+        null;
+
       await marketsApi.create({
         match_id:         matchId,
         market_type:      marketType,
         prediction_type:  predictionType,
-        admin_pick:       predictionType === 'market_pick' ? adminPick.trim() : null,
+        admin_pick:       resolvedPick,
         tiers:            activeTiers,
         staking_opens_at:  stakingOpens  || null,
         staking_closes_at: stakingCloses || null,
@@ -290,37 +329,43 @@ export default function AddNewMatch() {
       {/* ── STEP 1: Prediction Type ──────────────────────────────────── */}
       {step === 1 && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               {
                 key: 'market_pick',
-                title: 'Market Pick',
+                title: 'Mode 1 — Market Pick',
                 desc: 'I define the prediction. User picks YES or NO.',
-                detail: 'Admin sets a specific prediction. Users agree or disagree.',
+                detail: 'Analyst manually sets a specific prediction. Users agree or disagree.',
               },
               {
                 key: 'market_type',
-                title: 'Market Type',
+                title: 'Mode 2 — Market Type',
                 desc: 'System shows standard betting options. User picks one.',
-                detail: 'System auto-generates all standard options based on market category.',
+                detail: 'System auto-generates all standard outcomes from the selected market category.',
+              },
+              {
+                key: 'api_pick',
+                title: 'Mode 3 — API Pick',
+                desc: 'API-Football provides the pick automatically. User votes YES or NO.',
+                detail: 'Fastest to set up — the prediction is pulled from the API once you select a fixture.',
               },
             ].map(opt => (
-              <button key={opt.key} type="button" onClick={() => setPredictionType(opt.key)}
-                className={`text-left p-5 rounded-xl border-2 transition-all ${
+              <button key={opt.key} type="button" onClick={() => { setPredictionType(opt.key); setApiPickData(null); }}
+                className={`text-left p-4 rounded-xl border-2 transition-all ${
                   predictionType === opt.key
                     ? 'border-[#1A4D8F] bg-blue-50'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                     predictionType === opt.key ? 'border-[#1A4D8F]' : 'border-gray-300'
                   }`}>
                     {predictionType === opt.key && <div className="w-2 h-2 rounded-full bg-[#1A4D8F]" />}
                   </div>
-                  <p className="font-black text-sm text-[#1A1A2E]">{opt.title}</p>
+                  <p className="font-black text-xs text-[#1A1A2E] leading-tight">{opt.title}</p>
                 </div>
-                <p className="text-xs text-gray-500 leading-relaxed mb-2">{opt.desc}</p>
-                <p className="text-[11px] text-gray-400">{opt.detail}</p>
+                <p className="text-xs text-gray-500 leading-relaxed mb-1.5">{opt.desc}</p>
+                <p className="text-[11px] text-gray-400 leading-snug">{opt.detail}</p>
               </button>
             ))}
           </div>
@@ -342,11 +387,11 @@ export default function AddNewMatch() {
             </div>
           </div>
 
-          {predictionType === 'market_pick' && marketType && (
+          {(predictionType === 'market_pick') && marketType && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <h3 className="font-bold text-[#1A1A2E] mb-2">Admin Prediction</h3>
               <input value={adminPick} onChange={e => setAdminPick(e.target.value)}
-                placeholder={`e.g. Over 9.5 Corners`}
+                placeholder="e.g. Over 9.5 Corners"
                 className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.adminPick ? 'border-red-400' : 'border-gray-200'}`} />
               {errors.adminPick && <p className="text-red-500 text-xs mt-1">{errors.adminPick}</p>}
               {adminPick && (
@@ -359,6 +404,52 @@ export default function AddNewMatch() {
                   <p className="text-[10px] text-gray-500 mt-1.5">Agree or disagree: <strong>{adminPick}</strong></p>
                 </div>
               )}
+            </div>
+          )}
+
+          {predictionType === 'api_pick' && marketType && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <FiCpu className="w-4 h-4 text-[#1A4D8F]" />
+                <h3 className="font-bold text-[#1A1A2E]">API-Football Prediction</h3>
+              </div>
+
+              {apiPickLoading && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                  <span className="w-4 h-4 border-2 border-[#1A4D8F]/20 border-t-[#1A4D8F] rounded-full animate-spin shrink-0" />
+                  Fetching API prediction…
+                </div>
+              )}
+
+              {!apiPickLoading && apiPickData?.pick && (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-3">
+                  <p className="text-[10px] text-gray-400 mb-1">API pick (auto-fetched)</p>
+                  <p className="text-sm font-bold text-[#1A1A2E]">{apiPickData.pick}</p>
+                  {apiPickData.percent && (
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      API confidence — Home: {apiPickData.percent.home} · Draw: {apiPickData.percent.draw} · Away: {apiPickData.percent.away}
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-2">
+                    <div className="flex-1 py-1.5 bg-white border-2 border-gray-200 rounded-lg text-xs font-black text-center text-gray-600">YES</div>
+                    <div className="flex-1 py-1.5 bg-white border-2 border-gray-200 rounded-lg text-xs font-black text-center text-gray-600">NO</div>
+                  </div>
+                </div>
+              )}
+
+              {!apiPickLoading && !apiPickData?.pick && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                  {selectedFixture
+                    ? 'No prediction available from API for this fixture.'
+                    : 'Select a fixture from API-Football (Step 1) to auto-fetch the prediction.'}
+                </p>
+              )}
+
+              <p className="text-[11px] text-gray-400 mb-2">Override — manual pick (optional)</p>
+              <input value={adminPick} onChange={e => setAdminPick(e.target.value)}
+                placeholder="Leave blank to use API pick above"
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1A4D8F] ${errors.adminPick ? 'border-red-400' : 'border-gray-200'}`} />
+              {errors.adminPick && <p className="text-red-500 text-xs mt-1">{errors.adminPick}</p>}
             </div>
           )}
 
@@ -412,10 +503,13 @@ export default function AddNewMatch() {
                     </button>
                   </td>
                   <td className="py-4">
-                    <input type="number" min="1" value={t.entry_fee_points}
-                      onChange={e => updateTier(i, 'entry_fee_points', e.target.value)}
-                      disabled={!t.active}
-                      className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                    {t.tier === 'free'
+                      ? <span className="text-xs font-bold text-green-600 bg-green-50 border border-green-200 rounded-lg px-2 py-1.5 inline-block">0 (Free)</span>
+                      : <input type="number" min="1" value={t.entry_fee_points}
+                          onChange={e => updateTier(i, 'entry_fee_points', e.target.value)}
+                          disabled={!t.active}
+                          className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                    }
                   </td>
                   <td className="py-4">
                     <input type="number" min="1" value={t.winner_count}
@@ -480,8 +574,8 @@ export default function AddNewMatch() {
               ['League',      league || '—'],
               ['Date',        matchDate ? new Date(matchDate).toLocaleString() : '—'],
               ['Market',      marketType || '—'],
-              ['Type',        predictionType === 'market_pick' ? 'Market Pick' : 'Market Type'],
-              ['Admin Pick',  predictionType === 'market_pick' ? (adminPick || '—') : 'Auto-generated'],
+              ['Type',        predictionType === 'market_pick' ? 'Mode 1 — Market Pick' : predictionType === 'api_pick' ? 'Mode 3 — API Pick' : 'Mode 2 — Market Type'],
+              ['Admin Pick',  predictionType === 'market_type' ? 'Auto-generated' : predictionType === 'api_pick' ? (apiPickData?.pick || adminPick || '(fetched on save)') : (adminPick || '—')],
               ['Active Tiers', tiers.filter(t => t.active).map(t => `${t.label} (${t.entry_fee_points} BTP)`).join(', ') || '—'],
               ['Staking Opens',  stakingOpens  ? new Date(stakingOpens).toLocaleString()  : 'Immediately'],
               ['Staking Closes', stakingCloses ? new Date(stakingCloses).toLocaleString() : '5 mins before kickoff'],

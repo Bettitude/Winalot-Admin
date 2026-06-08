@@ -16,20 +16,25 @@ const TIER_META = {
 };
 
 const TIER_FILTERS   = ['All', 'silver', 'gold', 'platinum'];
-const TYPE_FILTERS   = ['All Types', 'market_pick', 'market_type'];
+const TYPE_FILTERS   = ['All Types', 'market_pick', 'market_type', 'api_pick'];
 const STATUS_OPTIONS = ['', 'draft', 'active', 'live', 'closed', 'finished'];
 const BULK_STATUSES  = ['draft', 'active', 'live', 'finished'];
 const PER_PAGE = 10;
 
 function TypeBadge({ type }) {
-  if (!type || type === 'market_pick') return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-      Market Pick
+  if (type === 'api_pick') return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+      API Pick
+    </span>
+  );
+  if (type === 'market_type') return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+      Market Type
     </span>
   );
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-      Market Type
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+      Market Pick
     </span>
   );
 }
@@ -190,7 +195,7 @@ export default function AllMatches() {
                 className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${
                   typeFilter === t ? 'bg-[#1A4D8F] text-white' : 'border border-gray-200 text-gray-500 hover:border-[#1A4D8F] hover:text-[#1A4D8F] bg-white'
                 }`}>
-                {t === 'market_pick' ? 'Market Pick' : t === 'market_type' ? 'Market Type' : t}
+                {t === 'market_pick' ? 'Market Pick' : t === 'market_type' ? 'Market Type' : t === 'api_pick' ? 'API Pick' : t}
               </button>
             ))}
           </div>

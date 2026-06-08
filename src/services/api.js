@@ -121,9 +121,10 @@ export const liveStatsApi = {
   get: () => get('/api/admin/stats/live'),
 };
 
-// ── Football search (API-Football proxy) ──────────────────────────────────────
+// ── Football search & predictions (API-Football proxy) ────────────────────────
 export const footballSearchApi = {
-  searchFixtures: (q) => get('/api/football/fixtures/search', { q }),
+  searchFixtures:  (q)         => get('/api/football/fixtures/search', { q }),
+  getPredictions:  (fixtureId) => get(`/api/markets/predictions`, { fixture_id: fixtureId }),
 };
 
 export default api;
