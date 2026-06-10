@@ -16,6 +16,9 @@ import SettlePredictions from './pages/tickets/SettlePredictions';
 import AllGiveaways      from './pages/giveaways/AllGiveaways';
 import AddNewGiveaway    from './pages/giveaways/AddNewGiveaway';
 import SettleGiveaway    from './pages/giveaways/SettleGiveaway';
+import WorldCupGames        from './pages/worldcup/WorldCupGames';
+import CreateWorldCupGame   from './pages/worldcup/CreateWorldCupGame';
+import SettleWorldCupGame   from './pages/worldcup/SettleWorldCupGame';
 import Transactions      from './pages/Transactions';
 import UserManagement    from './pages/users/UserManagement';
 import Notifications     from './pages/notifications/Notifications';
@@ -74,6 +77,9 @@ export default function App() {
               <Route path="giveaways"           element={<AllGiveaways />} />
               <Route path="giveaways/new"       element={<AddNewGiveaway />} />
               <Route path="giveaways/settle"    element={<SettleGiveaway />} />
+              <Route path="worldcup"            element={<WorldCupGames />} />
+              <Route path="worldcup/new"        element={<CreateWorldCupGame />} />
+              <Route path="worldcup/settle"     element={<SettleWorldCupGame />} />
               <Route path="transactions"        element={<Transactions />} />
               <Route path="users"           element={<UserManagement />} />
               <Route path="notifications"   element={<Notifications />} />

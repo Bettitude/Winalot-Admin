@@ -11,14 +11,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401, clear stored credentials and redirect to login
+// On 401, clear credentials and redirect to login — but NOT for demo sessions.
+// Demo tokens (prefix "dummy_") are not real JWTs so the backend will always
+// reject them. Let individual pages handle those errors with their own fallbacks.
 api.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('admin_token');
-      localStorage.removeItem('admin_user');
-      window.location.href = '/admin/login';
+      const token = localStorage.getItem('admin_token');
+      if (token && !token.startsWith('dummy_')) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        window.location.href = '/admin/login';
+      }
     }
     return Promise.reject(err);
   }
@@ -115,6 +120,16 @@ export const analyticsApi = {
 export const btpSettingsApi = {
   get:    ()     => get('/api/btp-settings'),
   update: (body) => put('/api/btp-settings', body),
+};
+
+// ── World Cup Games ───────────────────────────────────────────────────────────
+export const wcGamesApi = {
+  fixtures: ()                     => get('/api/worldcup/fixtures'),
+  list:     ()                     => get('/api/worldcup/games'),
+  create:   (body)                 => post('/api/worldcup/games', body),
+  update:   (fixtureId, body)      => patch(`/api/worldcup/games/${fixtureId}`, body),
+  settle:   (fixtureId, body)      => post(`/api/worldcup/games/${fixtureId}/settle`, body),
+  remove:   (fixtureId)            => del(`/api/worldcup/games/${fixtureId}`),
 };
 
 // ── Admin Live Stats ──────────────────────────────────────────────────────────

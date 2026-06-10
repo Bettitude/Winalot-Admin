@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   FiGrid, FiCalendar, FiTag, FiDollarSign, FiUsers, FiBell,
   FiChevronRight, FiChevronDown, FiPlusSquare, FiList,
-  FiBarChart2, FiSettings, FiGift,
+  FiBarChart2, FiSettings, FiGift, FiFlag, FiZap,
 } from 'react-icons/fi';
 import Logo from '../ui/Logo';
 
@@ -26,6 +26,13 @@ const nav = [
       { label: 'All Giveaways',    to: '/admin/giveaways',        icon: FiList },
       { label: 'Add New Giveaway', to: '/admin/giveaways/new',    icon: FiPlusSquare },
       { label: 'Settle Giveaway',  to: '/admin/giveaways/settle', icon: FiTag },
+    ],
+  },
+  {
+    label: 'World Cup', icon: FiFlag, children: [
+      { label: 'WC Games',        to: '/admin/worldcup',          icon: FiList },
+      { label: 'Add Free Game',   to: '/admin/worldcup/new',      icon: FiPlusSquare },
+      { label: 'Settle WC Game',  to: '/admin/worldcup/settle',   icon: FiZap },
     ],
   },
   { label: 'Transactions',  icon: FiDollarSign, to: '/admin/transactions' },
