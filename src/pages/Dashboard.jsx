@@ -152,32 +152,14 @@ export default function Dashboard() {
             pct:   Math.round(((m.total_entries || 0) / maxEntries) * 100),
           }));
 
-        const DUMMY_TXS = [
-          { id: 'd1', reference: 'WAL-PS-a1b2', type: 'deposit',    amount: 5000,  status: 'completed',  created_at: new Date(Date.now()-1*3600000).toISOString() },
-          { id: 'd2', reference: 'WAL-PS-c3d4', type: 'deposit',    amount: 10000, status: 'completed',  created_at: new Date(Date.now()-3*3600000).toISOString() },
-          { id: 'd3', reference: 'WDRAW-e5f6',  type: 'withdrawal', amount: -3000, status: 'pending',    created_at: new Date(Date.now()-5*3600000).toISOString() },
-          { id: 'd4', reference: 'WAL-PP-g7h8', type: 'deposit',    amount: 2000,  status: 'completed',  created_at: new Date(Date.now()-8*3600000).toISOString() },
-          { id: 'd5', reference: 'WDRAW-i9j0',  type: 'withdrawal', amount: -1500, status: 'completed',  created_at: new Date(Date.now()-12*3600000).toISOString() },
-        ];
-        const DUMMY_TICKETS = [
-          { id: 't1', ticket_number: 'WAL-20250526-00001', team_home: 'Arsenal',     team_away: 'Chelsea',   market_type: 'Match Result', username: 'lucky_striker', status: 'pending' },
-          { id: 't2', ticket_number: 'WAL-20250526-00002', team_home: 'Man City',    team_away: 'Liverpool', market_type: 'BTTS',         username: 'goal_getter',   status: 'won' },
-          { id: 't3', ticket_number: 'WAL-20250526-00003', team_home: 'Real Madrid', team_away: 'Barcelona', market_type: 'Total Goals',  username: 'soccer_pro',    status: 'pending' },
-        ];
-        const DUMMY_MOST_BOOKED = [
-          { match: 'Arsenal vs Chelsea',       pct: 92 },
-          { match: 'Man City vs Liverpool',    pct: 78 },
-          { match: 'Real Madrid vs Barcelona', pct: 65 },
-        ];
-
         setStats({
-          activeMatches:      activeMatches      || 8,
-          totalTickets:       totalTickets       || 1243,
-          totalUsers:         totalUsers         || 387,
-          totalRevenueBTP:    totalRevenueBTP    || 248600,
-          mostBooked:         mostBooked.length  ? mostBooked         : DUMMY_MOST_BOOKED,
-          recentTransactions: recentTxns.length  ? recentTxns         : DUMMY_TXS,
-          latestTickets:      latestTickets.length ? latestTickets     : DUMMY_TICKETS,
+          activeMatches:      activeMatches,
+          totalTickets:       totalTickets,
+          totalUsers:         totalUsers,
+          totalRevenueBTP:    totalRevenueBTP,
+          mostBooked:         mostBooked,
+          recentTransactions: recentTxns,
+          latestTickets:      latestTickets,
         });
       } catch { /* partial data is fine */ }
       finally { if (!cancelled) setLoading(false); }
