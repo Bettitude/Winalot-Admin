@@ -132,6 +132,7 @@ export const wcGamesApi = {
   update:   (fixtureId, body)      => patch(`/api/worldcup/games/${fixtureId}`, body),
   settle:   (fixtureId, body)      => post(`/api/worldcup/games/${fixtureId}/settle`, body),
   remove:   (fixtureId)            => del(`/api/worldcup/games/${fixtureId}`),
+  winners:  (fixtureId)            => get(`/api/worldcup/games/${fixtureId}/winners`),
 };
 
 // ── Admin Live Stats ──────────────────────────────────────────────────────────
