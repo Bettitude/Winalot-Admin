@@ -12,7 +12,7 @@ export default function CreateWorldCupGame() {
   const fixtureId = params.get('fixture') || '';
   const homeTeam  = params.get('home')    || '';
   const awayTeam  = params.get('away')    || '';
-  const matchDate = params.get('date')    || '';
+  const matchDate = (params.get('date') || '').replace(' ', '+');
 
   const [form, setForm] = useState({
     fixture_id:        fixtureId,

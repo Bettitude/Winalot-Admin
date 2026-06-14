@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FiMenu, FiBell, FiChevronDown, FiSettings, FiLogOut, FiUser } from 'react-icons/fi';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import Logo from '../ui/Logo';
 
 export default function TopBar({ onMenuToggle }) {
   const { admin, logout } = useAdminAuth();
@@ -16,15 +18,22 @@ export default function TopBar({ onMenuToggle }) {
   const initials = admin?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'AD';
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-5 shrink-0">
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-5 shrink-0 relative">
       {/* Left */}
       <div className="flex items-center gap-4">
         <button onClick={onMenuToggle} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
           <FiMenu className="w-5 h-5" />
         </button>
-        <span className="text-sm font-semibold text-gray-700 hidden sm:block">
+        <span className="text-sm font-semibold text-gray-700 hidden lg:block">
           Howdy, {admin?.name?.split(' ')[0] || 'Admin'}
         </span>
+      </div>
+
+      {/* Logo — centered, visible only on mobile where sidebar is toggled */}
+      <div className="absolute left-1/2 -translate-x-1/2 lg:hidden">
+        <Link to="/admin">
+          <Logo variant="full" height={36} />
+        </Link>
       </div>
 
       {/* Right */}

@@ -65,9 +65,9 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-gray-100 shrink-0">
         {!collapsed ? (
-          <Logo variant="full" height={28} />
+          <Logo variant="full" height={40} />
         ) : (
-          <Logo variant="icon" height={32} className="mx-auto" />
+          <Logo variant="icon" height={36} className="mx-auto" />
         )}
       </div>
 

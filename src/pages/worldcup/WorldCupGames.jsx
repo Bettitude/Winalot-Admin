@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   FiPlus, FiRefreshCw, FiZap, FiGift, FiCheckCircle,
   FiClock, FiTrash2, FiEdit2, FiMapPin, FiSave, FiX,
-  FiDollarSign, FiUsers,
+  FiDollarSign, FiUsers, FiWifi, FiAlertCircle, FiDatabase,
 } from 'react-icons/fi';
 import { useToast } from '../../context/ToastContext';
 import { wcGamesApi } from '../../services/api';
@@ -211,25 +211,70 @@ function EditGameModal({ game, fixtureLabel, onClose, onSaved }) {
   );
 }
 
+function SourceBadge({ source }) {
+  if (!source) return null;
+  if (source === 'api') return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+      <FiWifi className="w-3 h-3" /> Live API-Football
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+      <FiDatabase className="w-3 h-3" /> Mock Data
+    </span>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function WorldCupGames() {
-  const [fixtures, setFixtures] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState('all');
-  const [editing,  setEditing]  = useState(null); // { game, fixtureLabel }
-  const [deleting, setDeleting] = useState(null); // fixtureId being deleted
+  const [fixtures,    setFixtures]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [filter,      setFilter]      = useState('all');
+  const [editing,     setEditing]     = useState(null);
+  const [deleting,    setDeleting]    = useState(null);
+  const [source,      setSource]      = useState(null);
+  const [apiError,    setApiError]    = useState(null);
+  const [syncing,     setSyncing]     = useState(false);
+  const [syncResult,  setSyncResult]  = useState(null);
   const { addToast } = useToast();
 
   const load = async () => {
     setLoading(true);
     try {
       const d = await wcGamesApi.fixtures();
-      if (d.success) setFixtures(d.data);
-      else setFixtures(MOCK_FIXTURES);
+      if (d.success) {
+        setFixtures(d.data);
+        setSource(d.source || null);
+        setApiError(d.apiError || null);
+      } else {
+        setFixtures(MOCK_FIXTURES);
+        setSource('mock_fallback');
+      }
     } catch {
       setFixtures(MOCK_FIXTURES);
+      setSource('mock_offline');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const d = await wcGamesApi.sync();
+      setSyncResult(d);
+      if (d.results > 0) {
+        addToast(`API-Football returned ${d.results} WC 2026 fixtures — reloading…`, 'success');
+        load();
+      } else {
+        addToast(d.message || 'API returned 0 fixtures — check plan/key', 'error');
+      }
+    } catch (err) {
+      setSyncResult({ error: err.response?.data?.error || err.message });
+      addToast(err.response?.data?.error || 'Sync failed', 'error');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -287,18 +332,54 @@ export default function WorldCupGames() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl font-black text-gray-800">World Cup 2026 — Free Games</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage free prediction games for every WC fixture.</p>
+            <div className="flex items-center gap-2.5 mb-1">
+              <h1 className="text-xl font-black text-gray-800">World Cup 2026 — Free Games</h1>
+              <SourceBadge source={source} />
+            </div>
+            <p className="text-sm text-gray-500">Manage free prediction games for every WC fixture.</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={load} className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+            <button onClick={load} className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors" title="Reload">
               <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={handleSync} disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+              title="Test & sync from API-Football">
+              <FiWifi className={`w-4 h-4 ${syncing ? 'animate-pulse text-green-500' : ''}`} />
+              {syncing ? 'Syncing…' : 'Sync API'}
             </button>
             <Link to="/admin/worldcup/new" className="flex items-center gap-2 bg-[#1A4D8F] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#0D2B5E] transition-colors">
               <FiPlus className="w-4 h-4" /> Add Free Game
             </Link>
           </div>
         </div>
+
+        {/* API warning banner */}
+        {source && source !== 'api' && (
+          <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <FiAlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-amber-700">
+                {source === 'mock_no_key' ? 'No API-Football key — using placeholder fixtures.' : 'Could not reach API-Football — showing placeholder fixtures.'}
+              </p>
+              {apiError && <p className="text-[11px] text-amber-600 mt-0.5 truncate">Error: {apiError}</p>}
+              <p className="text-[11px] text-amber-600 mt-0.5">Click <strong>Sync API</strong> to test the connection and see detailed diagnostics.</p>
+              {syncResult && (
+                <pre className="mt-2 text-[10px] bg-amber-100 rounded p-2 overflow-x-auto whitespace-pre-wrap text-amber-900">
+                  {JSON.stringify(syncResult, null, 2)}
+                </pre>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sync result (when API is live) */}
+        {syncResult && source === 'api' && (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
+            <FiCheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+            <p className="text-xs font-semibold text-green-700">{syncResult.message}</p>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -399,7 +480,7 @@ export default function WorldCupGames() {
                         <div className="flex items-center justify-end gap-1">
                           {!freeGame ? (
                             <Link
-                              to={`/admin/worldcup/new?fixture=${fixture.id}&home=${encodeURIComponent(teams.home.name)}&away=${encodeURIComponent(teams.away.name)}&date=${fixture.date}`}
+                              to={`/admin/worldcup/new?fixture=${fixture.id}&home=${encodeURIComponent(teams.home.name)}&away=${encodeURIComponent(teams.away.name)}&date=${encodeURIComponent(fixture.date)}`}
                               className="flex items-center gap-1 text-[#1A4D8F] text-xs font-semibold hover:underline px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
                             >
                               <FiPlus className="w-3.5 h-3.5" /> Add Game

@@ -75,11 +75,12 @@ export const ticketsApi = {
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const usersApi = {
-  list:         (params)   => get('/api/users', params),
-  get:          (id)       => get(`/api/users/${id}`),
-  update:       (id, body) => patch(`/api/users/${id}`, body),
-  walletAdjust: (id, body) => post(`/api/users/${id}/wallet-adjust`, body),
-  stats:        (id)       => get(`/api/users/${id}/stats`),
+  list:           (params)   => get('/api/users', params),
+  get:            (id)       => get(`/api/users/${id}`),
+  update:         (id, body) => patch(`/api/users/${id}`, body),
+  walletAdjust:   (id, body) => post(`/api/users/${id}/wallet-adjust`, body),
+  stats:          (id)       => get(`/api/users/${id}/stats`),
+  getPayoutDetails: (id)     => get(`/api/users/${id}/payout-details`),
 };
 
 // ── Transactions ──────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ export const btpSettingsApi = {
 // ── World Cup Games ───────────────────────────────────────────────────────────
 export const wcGamesApi = {
   fixtures: ()                     => get('/api/worldcup/fixtures'),
+  sync:     ()                     => get('/api/worldcup/sync'),
   list:     ()                     => get('/api/worldcup/games'),
   create:   (body)                 => post('/api/worldcup/games', body),
   update:   (fixtureId, body)      => patch(`/api/worldcup/games/${fixtureId}`, body),

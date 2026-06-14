@@ -34,8 +34,8 @@ export default function AdminLogin() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Logo variant="full" height={40} className="mx-auto" />
-          <p className="text-xs text-gray-400 mt-2 font-medium uppercase tracking-widest">Admin Panel</p>
+          <Logo variant="full" height={64} className="mx-auto" />
+          <p className="text-xs text-gray-400 mt-3 font-medium uppercase tracking-widest">Admin Panel</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
