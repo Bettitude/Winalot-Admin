@@ -146,4 +146,12 @@ export const footballSearchApi = {
   getPredictions:  (fixtureId) => get(`/api/markets/predictions`, { fixture_id: fixtureId }),
 };
 
+// ── Ads ───────────────────────────────────────────────────────────────────────
+export const adsApi = {
+  list:   ()          => get('/api/ads/all'),
+  create: (body)      => post('/api/ads', body),
+  update: (id, body)  => patch(`/api/ads/${id}`, body),
+  remove: (id)        => del(`/api/ads/${id}`),
+};
+
 export default api;

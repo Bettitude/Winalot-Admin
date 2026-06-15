@@ -24,6 +24,7 @@ import UserManagement    from './pages/users/UserManagement';
 import Notifications     from './pages/notifications/Notifications';
 import Analytics         from './pages/Analytics';
 import BTPSettings       from './pages/BTPSettings';
+import AdsManager        from './pages/ads/AdsManager';
 import NotFound          from './pages/NotFound';
 
 function PageViewTracker() {
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="notifications"   element={<Notifications />} />
               <Route path="analytics"       element={<Analytics />} />
               <Route path="btp-settings"    element={<BTPSettings />} />
+              <Route path="ads"             element={<AdsManager />} />
               <Route path="*"               element={<NotFound />} />
             </Route>
 
