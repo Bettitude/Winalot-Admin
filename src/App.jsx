@@ -19,12 +19,14 @@ import SettleGiveaway    from './pages/giveaways/SettleGiveaway';
 import WorldCupGames        from './pages/worldcup/WorldCupGames';
 import CreateWorldCupGame   from './pages/worldcup/CreateWorldCupGame';
 import SettleWorldCupGame   from './pages/worldcup/SettleWorldCupGame';
+import GameEntries          from './pages/worldcup/GameEntries';
 import Transactions      from './pages/Transactions';
 import UserManagement    from './pages/users/UserManagement';
 import Notifications     from './pages/notifications/Notifications';
 import Analytics         from './pages/Analytics';
 import BTPSettings       from './pages/BTPSettings';
 import AdsManager        from './pages/ads/AdsManager';
+import ApprovalRequests  from './pages/ApprovalRequests';
 import NotFound          from './pages/NotFound';
 
 function PageViewTracker() {
@@ -81,12 +83,14 @@ export default function App() {
               <Route path="worldcup"            element={<WorldCupGames />} />
               <Route path="worldcup/new"        element={<CreateWorldCupGame />} />
               <Route path="worldcup/settle"     element={<SettleWorldCupGame />} />
+              <Route path="worldcup/entries"    element={<GameEntries />} />
               <Route path="transactions"        element={<Transactions />} />
               <Route path="users"           element={<UserManagement />} />
               <Route path="notifications"   element={<Notifications />} />
               <Route path="analytics"       element={<Analytics />} />
               <Route path="btp-settings"    element={<BTPSettings />} />
               <Route path="ads"             element={<AdsManager />} />
+              <Route path="requests"        element={<ApprovalRequests />} />
               <Route path="*"               element={<NotFound />} />
             </Route>
 

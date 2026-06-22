@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   FiGrid, FiCalendar, FiTag, FiDollarSign, FiUsers, FiBell,
   FiChevronRight, FiChevronDown, FiPlusSquare, FiList,
-  FiBarChart2, FiSettings, FiGift, FiFlag, FiZap, FiMonitor,
+  FiBarChart2, FiSettings, FiGift, FiFlag, FiZap, FiMonitor, FiCheckSquare,
 } from 'react-icons/fi';
 import Logo from '../ui/Logo';
 
@@ -39,6 +39,7 @@ const nav = [
   { label: 'Users',         icon: FiUsers,      to: '/admin/users' },
   { label: 'Notifications', icon: FiBell,       to: '/admin/notifications' },
   { label: 'Analytics',     icon: FiBarChart2,  to: '/admin/analytics' },
+  { label: 'Approval Requests', icon: FiCheckSquare, to: '/admin/requests' },
   { label: 'BTP Settings',  icon: FiSettings,   to: '/admin/btp-settings' },
   { label: 'Ads Manager',   icon: FiMonitor,    to: '/admin/ads' },
 ];

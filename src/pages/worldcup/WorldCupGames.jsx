@@ -7,6 +7,7 @@ import {
   FiChevronDown, FiChevronUp, FiAward, FiList, FiActivity,
 } from 'react-icons/fi';
 import { useToast } from '../../context/ToastContext';
+import { useAdminAuth } from '../../context/AdminAuthContext';
 import { wcGamesApi } from '../../services/api';
 
 const F = cc => `https://flagcdn.com/w80/${cc}.png`;
@@ -213,7 +214,7 @@ function EditGameModal({ game, fixtureLabel, onClose, onSaved }) {
 }
 
 // ── History Card — one finished fixture ───────────────────────────────────────
-function HistoryCard({ item, onEdit, onDelete, deleting }) {
+function HistoryCard({ item, onEdit, onDelete, deleting, isSuperAdmin }) {
   const { fixture, teams, goals, freeGame, league } = item;
   const [expanded,     setExpanded]     = useState(false);
   const [winners,      setWinners]      = useState(null);
@@ -277,12 +278,17 @@ function HistoryCard({ item, onEdit, onDelete, deleting }) {
         {!freeGame ? (
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-400 italic">No free game was created for this match</span>
-            <Link
-              to={`/admin/worldcup/new?fixture=${fixture.id}&home=${encodeURIComponent(teams.home.name)}&away=${encodeURIComponent(teams.away.name)}&date=${encodeURIComponent(fixture.date)}`}
-              className="flex items-center gap-1 text-[#1A4D8F] text-xs font-semibold hover:underline px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              <FiPlus className="w-3.5 h-3.5" /> Add Game
-            </Link>
+            {isSuperAdmin ? (
+              <Link
+                to={`/admin/worldcup/new?fixture=${fixture.id}&home=${encodeURIComponent(teams.home.name)}&away=${encodeURIComponent(teams.away.name)}&date=${encodeURIComponent(fixture.date)}`}
+                className="flex items-center gap-1 text-[#1A4D8F] text-xs font-semibold hover:underline px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                title="Super admin override — match already started"
+              >
+                <FiPlus className="w-3.5 h-3.5" /> Add Game
+              </Link>
+            ) : (
+              <span className="text-[11px] text-gray-300 italic px-2">Match already started</span>
+            )}
           </div>
         ) : (
           <>
@@ -351,16 +357,24 @@ function HistoryCard({ item, onEdit, onDelete, deleting }) {
             </div>
 
             {/* Expand / collapse winners */}
-            <button
-              onClick={toggleExpand}
-              className="w-full flex items-center justify-between text-xs font-semibold text-gray-500 hover:text-[#1A4D8F] py-2 border-t border-gray-100 transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <FiAward className="w-3.5 h-3.5" />
-                {freeGame.status === 'settled' ? 'View Winners & Entries' : 'View Entries'}
-              </span>
-              {expanded ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
-            </button>
+            <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
+              <button
+                onClick={toggleExpand}
+                className="flex-1 flex items-center justify-between text-xs font-semibold text-gray-500 hover:text-[#1A4D8F] py-1 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <FiAward className="w-3.5 h-3.5" />
+                  {freeGame.status === 'settled' ? 'View Winners' : 'Options Breakdown'}
+                </span>
+                {expanded ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
+              </button>
+              <Link
+                to={`/admin/worldcup/entries?fixture=${fixture.id}`}
+                className="flex items-center gap-1.5 text-xs font-semibold text-[#1A4D8F] hover:underline shrink-0"
+              >
+                <FiUsers className="w-3.5 h-3.5" /> All Predictions
+              </Link>
+            </div>
 
             {expanded && (
               <div className="pt-3 space-y-3">
@@ -433,6 +447,8 @@ function HistoryCard({ item, onEdit, onDelete, deleting }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function WorldCupGames() {
+  const { admin }      = useAdminAuth();
+  const isSuperAdmin   = !!admin?.is_super_admin;
   const [fixtures,    setFixtures]    = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [mainTab,     setMainTab]     = useState('active');
@@ -697,14 +713,26 @@ export default function WorldCupGames() {
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             {!freeGame ? (
-                              <Link
-                                to={`/admin/worldcup/new?fixture=${fixture.id}&home=${encodeURIComponent(teams.home.name)}&away=${encodeURIComponent(teams.away.name)}&date=${encodeURIComponent(fixture.date)}`}
-                                className="flex items-center gap-1 text-[#1A4D8F] text-xs font-semibold hover:underline px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
-                              >
-                                <FiPlus className="w-3.5 h-3.5" /> Add Game
-                              </Link>
+                              fixture.status.short === 'NS' || isSuperAdmin ? (
+                                <Link
+                                  to={`/admin/worldcup/new?fixture=${fixture.id}&home=${encodeURIComponent(teams.home.name)}&away=${encodeURIComponent(teams.away.name)}&date=${encodeURIComponent(fixture.date)}`}
+                                  className="flex items-center gap-1 text-[#1A4D8F] text-xs font-semibold hover:underline px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                                  title={fixture.status.short !== 'NS' ? 'Super admin override — match already started' : undefined}
+                                >
+                                  <FiPlus className="w-3.5 h-3.5" /> Add Game
+                                </Link>
+                              ) : (
+                                <span className="text-[11px] text-gray-300 italic px-2">Match started</span>
+                              )
                             ) : (
                               <>
+                                <Link
+                                  to={`/admin/worldcup/entries?fixture=${fixture.id}`}
+                                  className="flex items-center gap-1 text-gray-500 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                                  title="View predictions"
+                                >
+                                  <FiUsers className="w-3.5 h-3.5" />
+                                </Link>
                                 <button
                                   onClick={() => setEditing({ game: freeGame, label })}
                                   className="flex items-center gap-1 text-gray-500 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
@@ -758,6 +786,7 @@ export default function WorldCupGames() {
                     onEdit={setEditing}
                     onDelete={handleDelete}
                     deleting={deleting}
+                    isSuperAdmin={isSuperAdmin}
                   />
                 ))}
               </div>

@@ -45,12 +45,13 @@ export const authApi = {
 
 // ── Matches ───────────────────────────────────────────────────────────────────
 export const matchesApi = {
-  list:   (params) => get('/api/matches', params),
-  get:    (id)     => get(`/api/matches/${id}`),
-  create: (body)   => post('/api/matches', body),
-  update: (id, b)  => put(`/api/matches/${id}`, b),
-  remove: (id)     => del(`/api/matches/${id}`),
-  sync:   (id)     => post(`/api/matches/${id}/sync`),
+  list:     (params) => get('/api/matches', params),
+  get:      (id)     => get(`/api/matches/${id}`),
+  create:   (body)   => post('/api/matches', body),
+  update:   (id, b)  => put(`/api/matches/${id}`, b),
+  remove:   (id)     => del(`/api/matches/${id}`),
+  sync:     (id)     => post(`/api/matches/${id}/sync`),
+  calendar: ()       => get('/api/matches/calendar'),
 };
 
 // ── Markets ───────────────────────────────────────────────────────────────────
@@ -133,11 +134,19 @@ export const wcGamesApi = {
   settle:   (fixtureId, body)      => post(`/api/worldcup/games/${fixtureId}/settle`, body),
   remove:   (fixtureId)            => del(`/api/worldcup/games/${fixtureId}`),
   winners:  (fixtureId)            => get(`/api/worldcup/games/${fixtureId}/winners`),
+  entries:  (fixtureId, params)    => get(`/api/worldcup/games/${fixtureId}/entries`, params),
 };
 
 // ── Admin Live Stats ──────────────────────────────────────────────────────────
 export const liveStatsApi = {
   get: () => get('/api/admin/stats/live'),
+};
+
+// ── Change Requests (admin approval workflow) ─────────────────────────────────
+export const changeRequestsApi = {
+  list:    (params) => get('/api/admin/requests', params),
+  approve: (id)      => post(`/api/admin/requests/${id}/approve`),
+  reject:  (id)      => post(`/api/admin/requests/${id}/reject`),
 };
 
 // ── Football search & predictions (API-Football proxy) ────────────────────────

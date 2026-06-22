@@ -47,8 +47,12 @@ export default function BTPSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await btpSettingsApi.update(form);
-      addToast('BTP settings saved', 'success');
+      const d = await btpSettingsApi.update(form);
+      if (d.pending) {
+        addToast('Submitted for super admin approval', 'info');
+      } else {
+        addToast('BTP settings saved', 'success');
+      }
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to save settings', 'error');
     } finally {

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiEdit2, FiSearch, FiUsers, FiStar, FiAward, FiZap,
-         FiRefreshCw, FiCheckSquare, FiChevronDown, FiLayers } from 'react-icons/fi';
+         FiRefreshCw, FiCheckSquare, FiChevronDown, FiLayers,
+         FiCalendar, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import StatusBadge from '../../components/ui/StatusBadge';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Pagination from '../../components/ui/Pagination';
@@ -14,6 +15,71 @@ const TIER_META = {
   gold:     { Icon: FiAward, cls: 'bg-yellow-50 text-yellow-700 border border-yellow-300',  label: 'G' },
   platinum: { Icon: FiZap,   cls: 'bg-purple-50 text-purple-700 border border-purple-300',  label: 'P' },
 };
+
+const MONTHS     = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_SHORT = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+// ── Date-schedule calendar — pick a day to filter the match list ────────────
+function ScheduleCalendar({ year, month, dayCounts, selectedDay, onSelectDay, onChangeMonth }) {
+  const todayISO   = new Date().toISOString().slice(0, 10);
+  const firstDow   = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return (
+    <div className="border-b border-gray-100 bg-gray-50 px-5 py-4">
+      <div className="flex items-center justify-between mb-3 max-w-xs">
+        <button onClick={() => onChangeMonth(-1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white transition-colors">
+          <FiChevronLeft className="w-4 h-4 text-gray-500" />
+        </button>
+        <span className="text-sm font-black text-[#1A1A2E]">{MONTHS[month]} {year}</span>
+        <button onClick={() => onChangeMonth(1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white transition-colors">
+          <FiChevronRight className="w-4 h-4 text-gray-500" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 max-w-xs gap-y-0.5">
+        {DAYS_SHORT.map(d => (
+          <span key={d} className="text-center text-[9px] text-gray-400 font-bold py-1">{d}</span>
+        ))}
+        {cells.map((day, i) => {
+          if (!day) return <div key={`e-${i}`} className="h-9" />;
+          const iso        = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const isSelected = selectedDay === iso;
+          const isToday    = iso === todayISO;
+          const count      = dayCounts[iso] || 0;
+
+          return (
+            <button
+              key={iso}
+              onClick={() => onSelectDay(isSelected ? null : iso)}
+              className={`flex flex-col items-center justify-start py-1 h-9 rounded-lg transition-all ${
+                isSelected ? 'bg-[#1A4D8F] text-white'
+                : isToday  ? 'bg-blue-50 text-[#1A4D8F]'
+                : count > 0 ? 'hover:bg-white text-[#1A1A2E] cursor-pointer'
+                : 'text-gray-300'
+              }`}
+            >
+              <span className={`text-[11px] leading-none ${isSelected || isToday || count > 0 ? 'font-black' : 'font-medium'}`}>{day}</span>
+              {count > 0 && (
+                <span className={`text-[8px] font-bold mt-0.5 ${isSelected ? 'text-white/80' : 'text-[#1A4D8F]'}`}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedDay && (
+        <button onClick={() => onSelectDay(null)} className="mt-3 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+          <FiX className="w-3 h-3" /> Clear date filter
+        </button>
+      )}
+    </div>
+  );
+}
 
 const TIER_FILTERS   = ['All', 'silver', 'gold', 'platinum'];
 const TYPE_FILTERS   = ['All Types', 'market_pick', 'market_type', 'api_pick'];
@@ -81,6 +147,33 @@ export default function AllMatches() {
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [page, setPage]                 = useState(1);
 
+  // Date-schedule calendar
+  const now = new Date();
+  const [showCal, setShowCal]   = useState(false);
+  const [calYear, setCalYear]   = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [dateFilter, setDateFilter] = useState(null);
+  const [dayCounts, setDayCounts]   = useState({});
+
+  useEffect(() => {
+    matchesApi.calendar()
+      .then(res => {
+        const map = {};
+        (res.data?.days || []).forEach(d => { map[d.date] = d.count; });
+        setDayCounts(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  const changeMonth = (dir) => {
+    let m = calMonth + dir, y = calYear;
+    if (m < 0)  { m = 11; y--; }
+    if (m > 11) { m = 0;  y++; }
+    setCalYear(y); setCalMonth(m);
+  };
+
+  const handleSelectDay = (iso) => { setDateFilter(iso); setPage(1); };
+
   const fetchMatches = useCallback(async () => {
     setLoading(true);
     try {
@@ -89,6 +182,7 @@ export default function AllMatches() {
       if (typeFilter !== 'All Types')   params.prediction_type  = typeFilter;
       if (search)                       params.search           = search;
       if (statusFilter)                 params.status           = statusFilter;
+      if (dateFilter)                   params.date             = dateFilter;
       const res = await matchesApi.list(params);
       setMatches(res.data?.matches || []);
       setTotal(res.data?.total || 0);
@@ -97,7 +191,7 @@ export default function AllMatches() {
     } finally {
       setLoading(false);
     }
-  }, [page, tierFilter, typeFilter, search, statusFilter]);
+  }, [page, tierFilter, typeFilter, search, statusFilter, dateFilter]);
 
   useEffect(() => { fetchMatches(); }, [fetchMatches]);
 
@@ -172,6 +266,17 @@ export default function AllMatches() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50">
+          {/* Date schedule toggle */}
+          <button
+            onClick={() => setShowCal(v => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${
+              dateFilter || showCal ? 'bg-[#1A4D8F] text-white' : 'border border-gray-200 text-gray-500 hover:border-[#1A4D8F] hover:text-[#1A4D8F] bg-white'
+            }`}
+          >
+            <FiCalendar className="w-3.5 h-3.5" />
+            {dateFilter ? new Date(dateFilter + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Schedule'}
+          </button>
+
           {/* Status */}
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
             className="border border-gray-300 rounded px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none focus:border-[#1A4D8F]">
@@ -216,6 +321,18 @@ export default function AllMatches() {
 
           <span className="text-gray-400 text-sm ml-auto">{total} items</span>
         </div>
+
+        {/* Date-schedule calendar panel */}
+        {showCal && (
+          <ScheduleCalendar
+            year={calYear}
+            month={calMonth}
+            dayCounts={dayCounts}
+            selectedDay={dateFilter}
+            onSelectDay={handleSelectDay}
+            onChangeMonth={changeMonth}
+          />
+        )}
 
         {/* Bulk action bar — slides in when rows are selected */}
         {selected.length > 0 && (

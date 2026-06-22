@@ -9,15 +9,23 @@ import { matchesApi, marketsApi, footballSearchApi } from '../../services/api';
 import { generateOptions } from '../../utils/marketOptions';
 
 const MARKET_TYPES = [
-  'Match Result', 'Corners', 'Total Goals', 'Total Cards', 'Shots',
-  'BTTS', 'Goal Scorer', 'Penalty', 'Throw Ins', 'Fouls', 'Custom',
+  'Match Result', 'Corners', 'Total Goals', 'Total Cards', 'Yellow Cards',
+  'Red Cards', 'Shots', 'Offsides', 'BTTS', 'Goal Scorer', 'Penalty',
+  'Throw Ins', 'Fouls', 'Custom',
 ];
 
+// Entry-fee bounds per tier, in BTP (1 BTP = $1 USD)
+const TIER_PRICE_RANGE = {
+  silver:   { min: 0.10, max: 49  },
+  gold:     { min: 49,   max: 249 },
+  platinum: { min: 250,  max: 499 },
+};
+
 const DEFAULT_TIERS = [
-  { tier: 'free',     label: 'Free',     Icon: FiGift,  active: false, entry_fee_points: 0,  winner_count: 10, badge: 'bg-green-500 text-white' },
-  { tier: 'silver',   label: 'Silver',   Icon: FiStar,  active: true,  entry_fee_points: 1,  winner_count: 5,  badge: 'bg-gray-500 text-white' },
-  { tier: 'gold',     label: 'Gold',     Icon: FiAward, active: true,  entry_fee_points: 2,  winner_count: 3,  badge: 'bg-[#F5C518] text-[#1A1A2E]' },
-  { tier: 'platinum', label: 'Platinum', Icon: FiZap,   active: false, entry_fee_points: 5,  winner_count: 1,  badge: 'bg-purple-600 text-white' },
+  { tier: 'free',     label: 'Free',     Icon: FiGift,  active: false, entry_fee_points: 0,   winner_count: 10, min_entries: '', max_entries: '', badge: 'bg-green-500 text-white' },
+  { tier: 'silver',   label: 'Silver',   Icon: FiStar,  active: true,  entry_fee_points: 1,   winner_count: 5,  min_entries: '', max_entries: '', badge: 'bg-gray-500 text-white' },
+  { tier: 'gold',     label: 'Gold',     Icon: FiAward, active: true,  entry_fee_points: 49,  winner_count: 3,  min_entries: '', max_entries: '', badge: 'bg-[#F5C518] text-[#1A1A2E]' },
+  { tier: 'platinum', label: 'Platinum', Icon: FiZap,   active: false, entry_fee_points: 250, winner_count: 1,  min_entries: '', max_entries: '', badge: 'bg-purple-600 text-white' },
 ];
 
 const STEPS = ['Match', 'Prediction Type', 'Tiers', 'Staking Window', 'Publish'];
@@ -178,6 +186,15 @@ export default function AddNewMatch() {
     if (step === 2) {
       const anyActive = tiers.some(t => t.active);
       if (!anyActive) e.tiers = 'Enable at least one tier';
+
+      for (const t of tiers) {
+        if (!t.active || t.tier === 'free') continue;
+        const range = TIER_PRICE_RANGE[t.tier];
+        const fee   = parseFloat(t.entry_fee_points);
+        if (range && (isNaN(fee) || fee < range.min || fee > range.max)) {
+          e.tiers = `${t.label} entry fee must be between $${range.min} and $${range.max}`;
+        }
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -206,8 +223,10 @@ export default function AddNewMatch() {
 
       const activeTiers = tiers.filter(t => t.active).map(t => ({
         tier:              t.tier,
-        entry_fee_points:  parseInt(t.entry_fee_points),
+        entry_fee_points:  parseFloat(t.entry_fee_points),
         winner_count:      parseInt(t.winner_count),
+        min_entries:       t.min_entries !== '' ? parseInt(t.min_entries) : null,
+        max_entries:       t.max_entries !== '' ? parseInt(t.max_entries) : null,
       }));
 
       // For api_pick: use auto-fetched pick, fall back to manual adminPick
@@ -501,6 +520,8 @@ export default function AddNewMatch() {
                 <th className="text-left py-3">Active</th>
                 <th className="text-left py-3">Entry (BTP)</th>
                 <th className="text-left py-3">Winners</th>
+                <th className="text-left py-3">Min Entries</th>
+                <th className="text-left py-3">Max Entries</th>
               </tr>
             </thead>
             <tbody>
@@ -520,16 +541,39 @@ export default function AddNewMatch() {
                   <td className="py-4">
                     {t.tier === 'free'
                       ? <span className="text-xs font-bold text-green-600 bg-green-50 border border-green-200 rounded-lg px-2 py-1.5 inline-block">0 (Free)</span>
-                      : <input type="number" min="1" value={t.entry_fee_points}
-                          onChange={e => updateTier(i, 'entry_fee_points', e.target.value)}
-                          disabled={!t.active}
-                          className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                      : (
+                        <div>
+                          <input type="number" min={TIER_PRICE_RANGE[t.tier]?.min} max={TIER_PRICE_RANGE[t.tier]?.max} step="0.01" value={t.entry_fee_points}
+                            onChange={e => updateTier(i, 'entry_fee_points', e.target.value)}
+                            disabled={!t.active}
+                            className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                          {TIER_PRICE_RANGE[t.tier] && (
+                            <p className="text-[10px] text-gray-400 mt-1">
+                              ${TIER_PRICE_RANGE[t.tier].min} – ${TIER_PRICE_RANGE[t.tier].max}
+                            </p>
+                          )}
+                        </div>
+                      )
                     }
                   </td>
                   <td className="py-4">
                     <input type="number" min="1" value={t.winner_count}
                       onChange={e => updateTier(i, 'winner_count', e.target.value)}
                       disabled={!t.active}
+                      className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                  </td>
+                  <td className="py-4">
+                    <input type="number" min="0" value={t.min_entries}
+                      onChange={e => updateTier(i, 'min_entries', e.target.value)}
+                      disabled={!t.active}
+                      placeholder="None"
+                      className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
+                  </td>
+                  <td className="py-4">
+                    <input type="number" min="1" value={t.max_entries}
+                      onChange={e => updateTier(i, 'max_entries', e.target.value)}
+                      disabled={!t.active}
+                      placeholder="Infinite"
                       className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400" />
                   </td>
                 </tr>

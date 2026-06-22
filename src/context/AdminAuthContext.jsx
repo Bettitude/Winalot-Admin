@@ -25,11 +25,11 @@ export function AdminAuthProvider({ children }) {
     // ── Dummy admin accounts (no backend required) ────────────────────────────
     const DUMMY_ADMINS = [
       { email: 'admin@winalott.com', password: 'admin123', user: {
-          id: 'dummy-admin-001', name: 'WinALOT Admin', email: 'admin@winalott.com', role: 'admin',
+          id: 'dummy-admin-001', name: 'WinALOT Admin', email: 'admin@winalott.com', role: 'admin', is_super_admin: false,
         },
       },
       { email: 'superadmin@winalott.com', password: 'Admin1234', user: {
-          id: 'dummy-admin-002', name: 'Super Admin', email: 'superadmin@winalott.com', role: 'admin',
+          id: 'dummy-admin-002', name: 'Super Admin', email: 'superadmin@winalott.com', role: 'admin', is_super_admin: true,
         },
       },
     ];

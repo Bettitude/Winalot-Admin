@@ -145,6 +145,8 @@ export default function CreateWorldCupGame() {
     prize_usd:         '10',
     prize_description: '',
     winner_count:      '5',
+    min_entries:       '',
+    max_entries:       '',
   });
 
   // Custom question mode
@@ -225,10 +227,16 @@ export default function CreateWorldCupGame() {
         prize_usd:           form.prize_type === 'cash' ? Number(form.prize_usd) : null,
         prize_description:   form.prize_type === 'merch' ? form.prize_description : null,
         winner_count:        Number(form.winner_count),
+        min_entries:         form.min_entries ? Number(form.min_entries) : null,
+        max_entries:         form.max_entries ? Number(form.max_entries) : null,
       };
 
-      await wcGamesApi.create(body);
-      addToast('Free game created!', 'success');
+      const d = await wcGamesApi.create(body);
+      if (d.pending) {
+        addToast('Match already started — submitted for super admin approval', 'info');
+      } else {
+        addToast('Free game created!', 'success');
+      }
       navigate('/admin/worldcup');
     } catch (err) {
       addToast(err.response?.data?.error || err.message || 'Create failed', 'error');
@@ -528,6 +536,25 @@ export default function CreateWorldCupGame() {
                 required />
             </div>
             <p className="text-[11px] text-gray-400 mt-1">Randomly selected from users who predicted correctly</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Min Entries</label>
+              <input type="number" min="0" value={form.min_entries}
+                onChange={e => set('min_entries', e.target.value)}
+                placeholder="No minimum"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/20" />
+              <p className="text-[11px] text-gray-400 mt-1">Target entry count for this pool to be worth running</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Max Entries</label>
+              <input type="number" min="1" value={form.max_entries}
+                onChange={e => set('max_entries', e.target.value)}
+                placeholder="Infinite"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/20" />
+              <p className="text-[11px] text-gray-400 mt-1">Leave empty for unlimited entries</p>
+            </div>
           </div>
 
           {form.prize_type === 'cash' && form.prize_usd && form.winner_count && (

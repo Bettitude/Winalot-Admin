@@ -9,14 +9,21 @@ import { marketsApi, footballSearchApi } from '../../services/api';
 import { generateOptions } from '../../utils/marketOptions';
 
 const MARKET_TYPES = [
-  'Match Result', 'Corners', 'Total Goals', 'Total Cards', 'Shots',
-  'BTTS', 'Penalty', 'Throw Ins', 'Fouls',
+  'Match Result', 'Corners', 'Total Goals', 'Total Cards', 'Yellow Cards',
+  'Red Cards', 'Shots', 'Offsides', 'BTTS', 'Penalty', 'Throw Ins', 'Fouls',
 ];
 
+// Entry-fee bounds per tier, in BTP (1 BTP = $1 USD)
+const TIER_PRICE_RANGE = {
+  silver:   { min: 0.10, max: 49  },
+  gold:     { min: 49,   max: 249 },
+  platinum: { min: 250,  max: 499 },
+};
+
 const DEFAULT_TIERS = [
-  { tier: 'silver',   label: 'Silver',   Icon: FiStar,  badge: 'bg-gray-500 text-white',           active: true,  entry_fee_points: 100, winner_count: 5 },
-  { tier: 'gold',     label: 'Gold',     Icon: FiAward, badge: 'bg-[#F5C518] text-[#1A1A2E]',      active: false, entry_fee_points: 500, winner_count: 3 },
-  { tier: 'platinum', label: 'Platinum', Icon: FiZap,   badge: 'bg-purple-600 text-white',          active: false, entry_fee_points: 2500, winner_count: 1 },
+  { tier: 'silver',   label: 'Silver',   Icon: FiStar,  badge: 'bg-gray-500 text-white',           active: true,  entry_fee_points: 1,   winner_count: 5, min_entries: '', max_entries: '' },
+  { tier: 'gold',     label: 'Gold',     Icon: FiAward, badge: 'bg-[#F5C518] text-[#1A1A2E]',      active: false, entry_fee_points: 49,  winner_count: 3, min_entries: '', max_entries: '' },
+  { tier: 'platinum', label: 'Platinum', Icon: FiZap,   badge: 'bg-purple-600 text-white',          active: false, entry_fee_points: 250, winner_count: 1, min_entries: '', max_entries: '' },
 ];
 
 const MODE_OPTIONS = [
@@ -81,8 +88,10 @@ export default function BulkAddMatches() {
 
   const activeTiers = tiers.filter(t => t.active).map(t => ({
     tier: t.tier,
-    entry_fee_points: parseInt(t.entry_fee_points),
+    entry_fee_points: parseFloat(t.entry_fee_points),
     winner_count: parseInt(t.winner_count),
+    min_entries: t.min_entries !== '' ? parseInt(t.min_entries) : null,
+    max_entries: t.max_entries !== '' ? parseInt(t.max_entries) : null,
   }));
 
   const previewOptions = generateOptions(marketType, 'Home', 'Away');
@@ -307,8 +316,8 @@ export default function BulkAddMatches() {
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${t.badge}`}>
                     <t.Icon className="w-2.5 h-2.5" />{t.label}
                   </span>
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <input type="number" min="1" value={t.entry_fee_points}
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
+                    <input type="number" min={TIER_PRICE_RANGE[t.tier]?.min} max={TIER_PRICE_RANGE[t.tier]?.max} step="0.01" value={t.entry_fee_points}
                       onChange={e => updateTier(i, 'entry_fee_points', e.target.value)}
                       disabled={!t.active}
                       className="w-16 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400"
@@ -320,6 +329,18 @@ export default function BulkAddMatches() {
                       className="w-14 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400"
                       placeholder="Winners" />
                     <span className="text-[10px] text-gray-400">winners</span>
+                    <input type="number" min="0" value={t.min_entries}
+                      onChange={e => updateTier(i, 'min_entries', e.target.value)}
+                      disabled={!t.active}
+                      className="w-14 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400"
+                      placeholder="Min" />
+                    <span className="text-[10px] text-gray-400">min</span>
+                    <input type="number" min="1" value={t.max_entries}
+                      onChange={e => updateTier(i, 'max_entries', e.target.value)}
+                      disabled={!t.active}
+                      className="w-14 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-[#1A4D8F] disabled:bg-gray-50 disabled:text-gray-400"
+                      placeholder="Max" />
+                    <span className="text-[10px] text-gray-400">max</span>
                   </div>
                 </div>
               ))}
