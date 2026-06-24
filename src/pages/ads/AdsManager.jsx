@@ -16,6 +16,10 @@ const SLOTS = [
 
 const SLOT_MAP = Object.fromEntries(SLOTS.map(s => [s.key, s]));
 
+// Ads can be any media type — detect video vs image from the URL so admins
+// can paste an image, GIF, or video link without picking a format.
+const isVideoUrl = (url = '') => /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
+
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function AdModal({ ad, onClose, onSaved }) {
   const { addToast } = useToast();
@@ -91,15 +95,17 @@ function AdModal({ ad, onClose, onSaved }) {
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/20" required />
           </div>
 
-          {/* Image URL */}
+          {/* Media URL */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
-              <FiImage className="w-3 h-3" /> Image URL
+              <FiImage className="w-3 h-3" /> Media URL (image, GIF, or video)
             </label>
             <input type="url" value={form.image_url} onChange={e => set('image_url', e.target.value)}
               placeholder="https://..."
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D8F]/20" required />
-            <p className="text-[10px] text-gray-400 mt-1">Host your image on Cloudinary, Imgur, or any CDN. Recommended size: {slotInfo?.size}.</p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Any image/GIF link or direct video link (.mp4, .webm) works — host on Cloudinary or any CDN. Recommended size: {slotInfo?.size}.
+            </p>
           </div>
 
           {/* Link URL */}
@@ -154,8 +160,12 @@ function AdModal({ ad, onClose, onSaved }) {
               {preview && (
                 <div className="rounded-xl overflow-hidden border border-gray-200"
                   style={form.bg_color ? { backgroundColor: form.bg_color } : {}}>
-                  <img src={form.image_url} alt="Preview" className="w-full object-contain max-h-48"
-                    onError={e => { e.target.src = 'https://placehold.co/600x200/e5e7eb/9ca3af?text=Image+not+found'; }} />
+                  {isVideoUrl(form.image_url) ? (
+                    <video src={form.image_url} className="w-full object-contain max-h-48" autoPlay muted loop playsInline />
+                  ) : (
+                    <img src={form.image_url} alt="Preview" className="w-full object-contain max-h-48"
+                      onError={e => { e.target.src = 'https://placehold.co/600x200/e5e7eb/9ca3af?text=Media+not+found'; }} />
+                  )}
                 </div>
               )}
             </div>
@@ -347,9 +357,13 @@ export default function AdsManager() {
                       <td className="px-4 py-3">
                         <div className="w-20 h-12 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0"
                           style={ad.bg_color ? { backgroundColor: ad.bg_color } : {}}>
-                          <img src={ad.image_url} alt={ad.title}
-                            className="w-full h-full object-cover"
-                            onError={e => { e.target.src = 'https://placehold.co/80x48/e5e7eb/9ca3af?text=Img'; }} />
+                          {isVideoUrl(ad.image_url) ? (
+                            <video src={ad.image_url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                          ) : (
+                            <img src={ad.image_url} alt={ad.title}
+                              className="w-full h-full object-cover"
+                              onError={e => { e.target.src = 'https://placehold.co/80x48/e5e7eb/9ca3af?text=Img'; }} />
+                          )}
                         </div>
                       </td>
 
